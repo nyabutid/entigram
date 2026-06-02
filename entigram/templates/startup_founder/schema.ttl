@@ -1,0 +1,134 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix mk: <http://entigram.ai/ontology/custom#> .
+
+mk:Ontology a owl:Ontology ;
+    rdfs:label "Entigram Generated Ontology" ;
+    mk:generatedAt "2026-05-17T19:37:18.526576" .
+
+mk:Idea a owl:Class ;
+    rdfs:label "Idea" .
+
+mk:Value_Proposition a owl:Class ;
+    rdfs:label "Value_Proposition" .
+
+mk:Market_Segment a owl:Class ;
+    rdfs:label "Market_Segment" .
+
+mk:Competitor a owl:Class ;
+    rdfs:label "Competitor" .
+
+mk:User_Persona a owl:Class ;
+    rdfs:label "User_Persona" .
+
+mk:Idea_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Idea ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Idea_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Idea ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Idea_description a owl:DatatypeProperty ;
+    rdfs:domain mk:Idea ;
+    rdfs:range xsd:string ;
+    rdfs:label "description" .
+
+mk:Idea_problem_statement a owl:DatatypeProperty ;
+    rdfs:domain mk:Idea ;
+    rdfs:range xsd:string ;
+    rdfs:label "problem_statement" .
+
+mk:Value_Proposition_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Value_Proposition ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Value_Proposition_core_benefit a owl:DatatypeProperty ;
+    rdfs:domain mk:Value_Proposition ;
+    rdfs:range xsd:string ;
+    rdfs:label "core_benefit" .
+
+mk:Value_Proposition_differentiator a owl:DatatypeProperty ;
+    rdfs:domain mk:Value_Proposition ;
+    rdfs:range xsd:string ;
+    rdfs:label "differentiator" .
+
+mk:Market_Segment_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Market_Segment ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Market_Segment_target_audience a owl:DatatypeProperty ;
+    rdfs:domain mk:Market_Segment ;
+    rdfs:range xsd:string ;
+    rdfs:label "target_audience" .
+
+mk:Market_Segment_estimated_size a owl:DatatypeProperty ;
+    rdfs:domain mk:Market_Segment ;
+    rdfs:range xsd:string ;
+    rdfs:label "estimated_size" .
+
+mk:Competitor_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Competitor ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Competitor_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Competitor ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Competitor_strengths a owl:DatatypeProperty ;
+    rdfs:domain mk:Competitor ;
+    rdfs:range xsd:string ;
+    rdfs:label "strengths" .
+
+mk:Competitor_weaknesses a owl:DatatypeProperty ;
+    rdfs:domain mk:Competitor ;
+    rdfs:range xsd:string ;
+    rdfs:label "weaknesses" .
+
+mk:User_Persona_id a owl:DatatypeProperty ;
+    rdfs:domain mk:User_Persona ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:User_Persona_role a owl:DatatypeProperty ;
+    rdfs:domain mk:User_Persona ;
+    rdfs:range xsd:string ;
+    rdfs:label "role" .
+
+mk:User_Persona_goals a owl:DatatypeProperty ;
+    rdfs:domain mk:User_Persona ;
+    rdfs:range xsd:string ;
+    rdfs:label "goals" .
+
+mk:User_Persona_pain_points a owl:DatatypeProperty ;
+    rdfs:domain mk:User_Persona ;
+    rdfs:range xsd:string ;
+    rdfs:label "pain_points" .
+
+mk:relates_Idea_to_Value_Proposition a owl:ObjectProperty ;
+    rdfs:domain mk:Idea ;
+    rdfs:range mk:Value_Proposition ;
+    rdfs:label "relates" .
+
+mk:relates_Idea_to_Market_Segment a owl:ObjectProperty ;
+    rdfs:domain mk:Idea ;
+    rdfs:range mk:Market_Segment ;
+    rdfs:label "relates" .
+
+mk:relates_Idea_to_Competitor a owl:ObjectProperty ;
+    rdfs:domain mk:Idea ;
+    rdfs:range mk:Competitor ;
+    rdfs:label "relates" .
+
+mk:relates_Market_Segment_to_User_Persona a owl:ObjectProperty ;
+    rdfs:domain mk:Market_Segment ;
+    rdfs:range mk:User_Persona ;
+    rdfs:label "relates" .

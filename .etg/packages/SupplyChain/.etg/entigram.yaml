@@ -1,0 +1,14 @@
+cli_engine: Antigravity
+last_updated: '2026-05-18 08:22:41'
+entigram_version: 0.0.1
+packages:
+- SupplyChain
+state_ledger: .etg/entigram_state.db
+status: initialized
+namespace: '@entigram'
+name: SupplyChain
+version: 0.0.1
+tier: community
+license: MIT
+dependencies: {}
+requires_hosted_ledger: false

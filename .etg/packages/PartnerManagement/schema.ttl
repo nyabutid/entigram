@@ -1,0 +1,190 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix mk: <http://entigram.ai/ontology/custom#> .
+
+mk:Ontology a owl:Ontology ;
+    rdfs:label "Entigram Generated Ontology" ;
+    mk:generatedAt "2026-05-26T21:12:01.215121" .
+
+mk:Partner_Organization a owl:Class ;
+    rdfs:label "Partner_Organization" .
+
+mk:Federated_Agent a owl:Class ;
+    rdfs:label "Federated_Agent" .
+
+mk:Semantic_Alignment a owl:Class ;
+    rdfs:label "Semantic_Alignment" .
+
+mk:Data_Enclave a owl:Class ;
+    rdfs:label "Data_Enclave" .
+
+mk:Partner_Organization_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Partner_Organization_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Partner_Organization_domain_authority a owl:DatatypeProperty ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range xsd:string ;
+    rdfs:label "domain_authority" .
+
+mk:Partner_Organization_trust_score a owl:DatatypeProperty ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range xsd:string ;
+    rdfs:label "trust_score" .
+
+mk:Federated_Agent_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Federated_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Federated_Agent_agent_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Federated_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "agent_type" .
+
+mk:Federated_Agent_capability_manifest a owl:DatatypeProperty ;
+    rdfs:domain mk:Federated_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "capability_manifest" .
+
+mk:Federated_Agent_last_heartbeat a owl:DatatypeProperty ;
+    rdfs:domain mk:Federated_Agent ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "last_heartbeat" .
+
+mk:Semantic_Alignment_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Semantic_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Semantic_Alignment_local_concept a owl:DatatypeProperty ;
+    rdfs:domain mk:Semantic_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "local_concept" .
+
+mk:Semantic_Alignment_partner_concept a owl:DatatypeProperty ;
+    rdfs:domain mk:Semantic_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "partner_concept" .
+
+mk:Semantic_Alignment_mapping_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Semantic_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "mapping_type" .
+
+mk:Semantic_Alignment_confidence a owl:DatatypeProperty ;
+    rdfs:domain mk:Semantic_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "confidence" .
+
+mk:Data_Enclave_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Data_Enclave ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Data_Enclave_storage_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Data_Enclave ;
+    rdfs:range xsd:string ;
+    rdfs:label "storage_type" .
+
+mk:Data_Enclave_compute_boundary a owl:DatatypeProperty ;
+    rdfs:domain mk:Data_Enclave ;
+    rdfs:range xsd:string ;
+    rdfs:label "compute_boundary" .
+
+mk:Data_Enclave_is_sovereign a owl:DatatypeProperty ;
+    rdfs:domain mk:Data_Enclave ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "is_sovereign" .
+
+mk:relates_Partner_Organization_to_Federated_Agent a owl:ObjectProperty ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range mk:Federated_Agent ;
+    rdfs:label "relates" .
+
+mk:relates_Federated_Agent_to_Partner_Organization a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Partner_Organization_to_Federated_Agent ;
+    rdfs:domain mk:Federated_Agent ;
+    rdfs:range mk:Partner_Organization ;
+    rdfs:label "inverse_relates" .
+
+mk:Federated_Agent rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Federated_Agent_to_Partner_Organization ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Federated_Agent_to_Partner_Organization ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Partner_Organization_to_Semantic_Alignment a owl:ObjectProperty ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range mk:Semantic_Alignment ;
+    rdfs:label "relates" .
+
+mk:relates_Semantic_Alignment_to_Partner_Organization a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Partner_Organization_to_Semantic_Alignment ;
+    rdfs:domain mk:Semantic_Alignment ;
+    rdfs:range mk:Partner_Organization ;
+    rdfs:label "inverse_relates" .
+
+mk:Semantic_Alignment rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Semantic_Alignment_to_Partner_Organization ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Semantic_Alignment_to_Partner_Organization ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Federated_Agent_to_Data_Enclave a owl:ObjectProperty ;
+    rdfs:domain mk:Federated_Agent ;
+    rdfs:range mk:Data_Enclave ;
+    rdfs:label "relates" .
+
+mk:relates_Data_Enclave_to_Federated_Agent a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Federated_Agent_to_Data_Enclave ;
+    rdfs:domain mk:Data_Enclave ;
+    rdfs:range mk:Federated_Agent ;
+    rdfs:label "inverse_relates" .
+
+mk:Data_Enclave rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Data_Enclave_to_Federated_Agent ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Data_Enclave_to_Federated_Agent ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Partner_Organization_to_Data_Enclave a owl:ObjectProperty ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range mk:Data_Enclave ;
+    rdfs:label "relates" .
+
+mk:relates_Data_Enclave_to_Partner_Organization a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Partner_Organization_to_Data_Enclave ;
+    rdfs:domain mk:Data_Enclave ;
+    rdfs:range mk:Partner_Organization ;
+    rdfs:label "inverse_relates" .
+
+mk:Data_Enclave rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Data_Enclave_to_Partner_Organization ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Data_Enclave_to_Partner_Organization ;
+        owl:minCardinality 1
+    ] .

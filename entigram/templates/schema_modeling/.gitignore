@@ -1,0 +1,19 @@
+# Node/Python Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# Local Compiler Outputs
+.etg-build/
+
+# OS Files
+.DS_Store
+
+# Env
+.env
+
+# Allow Entigram metadata but ignore SQLite temp files
+!.etg/
+.etg/*.db-shm
+.etg/*.db-wal
+.etg/*.db-journal

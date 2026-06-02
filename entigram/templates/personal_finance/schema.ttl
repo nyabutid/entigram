@@ -1,0 +1,149 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix mk: <http://entigram.ai/ontology/custom#> .
+
+mk:Ontology a owl:Ontology ;
+    rdfs:label "Entigram Generated Ontology" ;
+    mk:generatedAt "2026-05-17T19:33:10.594392" .
+
+mk:Account a owl:Class ;
+    rdfs:label "Account" .
+
+mk:Transaction a owl:Class ;
+    rdfs:label "Transaction" .
+
+mk:Category a owl:Class ;
+    rdfs:label "Category" .
+
+mk:Budget a owl:Class ;
+    rdfs:label "Budget" .
+
+mk:Financial_Goal a owl:Class ;
+    rdfs:label "Financial_Goal" .
+
+mk:Account_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Account ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Account_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Account ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Account_institution a owl:DatatypeProperty ;
+    rdfs:domain mk:Account ;
+    rdfs:range xsd:string ;
+    rdfs:label "institution" .
+
+mk:Account_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Account ;
+    rdfs:range xsd:string ;
+    rdfs:label "type" .
+
+mk:Account_currency a owl:DatatypeProperty ;
+    rdfs:domain mk:Account ;
+    rdfs:range xsd:string ;
+    rdfs:label "currency" .
+
+mk:Transaction_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Transaction ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Transaction_amount a owl:DatatypeProperty ;
+    rdfs:domain mk:Transaction ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "amount" .
+
+mk:Transaction_date a owl:DatatypeProperty ;
+    rdfs:domain mk:Transaction ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "date" .
+
+mk:Transaction_description a owl:DatatypeProperty ;
+    rdfs:domain mk:Transaction ;
+    rdfs:range xsd:string ;
+    rdfs:label "description" .
+
+mk:Transaction_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Transaction ;
+    rdfs:range xsd:string ;
+    rdfs:label "status" .
+
+mk:Category_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Category ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Category_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Category ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Category_budget_limit a owl:DatatypeProperty ;
+    rdfs:domain mk:Category ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "budget_limit" .
+
+mk:Budget_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Budget ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Budget_period a owl:DatatypeProperty ;
+    rdfs:domain mk:Budget ;
+    rdfs:range xsd:string ;
+    rdfs:label "period" .
+
+mk:Budget_total_limit a owl:DatatypeProperty ;
+    rdfs:domain mk:Budget ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "total_limit" .
+
+mk:Financial_Goal_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Financial_Goal ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Financial_Goal_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Financial_Goal ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Financial_Goal_target_amount a owl:DatatypeProperty ;
+    rdfs:domain mk:Financial_Goal ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "target_amount" .
+
+mk:Financial_Goal_deadline a owl:DatatypeProperty ;
+    rdfs:domain mk:Financial_Goal ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "deadline" .
+
+mk:Financial_Goal_priority a owl:DatatypeProperty ;
+    rdfs:domain mk:Financial_Goal ;
+    rdfs:range xsd:integer ;
+    rdfs:label "priority" .
+
+mk:relates_Account_to_Transaction a owl:ObjectProperty ;
+    rdfs:domain mk:Account ;
+    rdfs:range mk:Transaction ;
+    rdfs:label "relates" .
+
+mk:relates_Category_to_Transaction a owl:ObjectProperty ;
+    rdfs:domain mk:Category ;
+    rdfs:range mk:Transaction ;
+    rdfs:label "relates" .
+
+mk:relates_Budget_to_Category a owl:ObjectProperty ;
+    rdfs:domain mk:Budget ;
+    rdfs:range mk:Category ;
+    rdfs:label "relates" .
+
+mk:relates_Account_to_Financial_Goal a owl:ObjectProperty ;
+    rdfs:domain mk:Account ;
+    rdfs:range mk:Financial_Goal ;
+    rdfs:label "relates" .
