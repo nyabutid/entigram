@@ -1,0 +1,139 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix mk: <http://entigram.ai/ontology/custom#> .
+
+mk:Ontology a owl:Ontology ;
+    rdfs:label "Entigram Generated Ontology" ;
+    mk:generatedAt "2026-05-17T19:37:18.527247" .
+
+mk:Strategic_Goal a owl:Class ;
+    rdfs:label "Strategic_Goal" .
+
+mk:KPI a owl:Class ;
+    rdfs:label "KPI" .
+
+mk:Revenue_Stream a owl:Class ;
+    rdfs:label "Revenue_Stream" .
+
+mk:Cost_Structure a owl:Class ;
+    rdfs:label "Cost_Structure" .
+
+mk:Strategic_Initiative a owl:Class ;
+    rdfs:label "Strategic_Initiative" .
+
+mk:Strategic_Goal_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Strategic_Goal ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Strategic_Goal_statement a owl:DatatypeProperty ;
+    rdfs:domain mk:Strategic_Goal ;
+    rdfs:range xsd:string ;
+    rdfs:label "statement" .
+
+mk:Strategic_Goal_target_date a owl:DatatypeProperty ;
+    rdfs:domain mk:Strategic_Goal ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "target_date" .
+
+mk:Strategic_Goal_priority a owl:DatatypeProperty ;
+    rdfs:domain mk:Strategic_Goal ;
+    rdfs:range xsd:integer ;
+    rdfs:label "priority" .
+
+mk:KPI_id a owl:DatatypeProperty ;
+    rdfs:domain mk:KPI ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:KPI_name a owl:DatatypeProperty ;
+    rdfs:domain mk:KPI ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:KPI_current_value a owl:DatatypeProperty ;
+    rdfs:domain mk:KPI ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "current_value" .
+
+mk:KPI_target_value a owl:DatatypeProperty ;
+    rdfs:domain mk:KPI ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "target_value" .
+
+mk:KPI_unit a owl:DatatypeProperty ;
+    rdfs:domain mk:KPI ;
+    rdfs:range xsd:string ;
+    rdfs:label "unit" .
+
+mk:Revenue_Stream_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Revenue_Stream ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Revenue_Stream_source a owl:DatatypeProperty ;
+    rdfs:domain mk:Revenue_Stream ;
+    rdfs:range xsd:string ;
+    rdfs:label "source" .
+
+mk:Revenue_Stream_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Revenue_Stream ;
+    rdfs:range xsd:string ;
+    rdfs:label "type" .
+
+mk:Cost_Structure_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Cost_Structure ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Cost_Structure_item a owl:DatatypeProperty ;
+    rdfs:domain mk:Cost_Structure ;
+    rdfs:range xsd:string ;
+    rdfs:label "item" .
+
+mk:Cost_Structure_frequency a owl:DatatypeProperty ;
+    rdfs:domain mk:Cost_Structure ;
+    rdfs:range xsd:string ;
+    rdfs:label "frequency" .
+
+mk:Cost_Structure_estimated_amount a owl:DatatypeProperty ;
+    rdfs:domain mk:Cost_Structure ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "estimated_amount" .
+
+mk:Strategic_Initiative_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Strategic_Initiative ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Strategic_Initiative_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Strategic_Initiative ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Strategic_Initiative_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Strategic_Initiative ;
+    rdfs:range xsd:string ;
+    rdfs:label "status" .
+
+mk:relates_Strategic_Goal_to_KPI a owl:ObjectProperty ;
+    rdfs:domain mk:Strategic_Goal ;
+    rdfs:range mk:KPI ;
+    rdfs:label "relates" .
+
+mk:relates_Strategic_Goal_to_Strategic_Initiative a owl:ObjectProperty ;
+    rdfs:domain mk:Strategic_Goal ;
+    rdfs:range mk:Strategic_Initiative ;
+    rdfs:label "relates" .
+
+mk:relates_Revenue_Stream_to_KPI a owl:ObjectProperty ;
+    rdfs:domain mk:Revenue_Stream ;
+    rdfs:range mk:KPI ;
+    rdfs:label "relates" .
+
+mk:relates_Cost_Structure_to_Strategic_Initiative a owl:ObjectProperty ;
+    rdfs:domain mk:Cost_Structure ;
+    rdfs:range mk:Strategic_Initiative ;
+    rdfs:label "relates" .

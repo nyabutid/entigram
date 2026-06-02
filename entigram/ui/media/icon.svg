@@ -1,0 +1,31 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#2B2B2B"/>
+  
+  <!-- Outer Circle -->
+  <circle cx="256" cy="256" r="230" fill="none" stroke="#B2D2B2" stroke-width="8"/>
+  
+  <!-- Geometric Owl Head -->
+  <g transform="translate(136, 150) scale(0.6)" stroke="#B2D2B2" stroke-width="12" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Brow/Ears -->
+    <path d="M 0 100 L 100 0 L 200 100 L 300 0 L 400 100" />
+    <path d="M 100 0 L 200 100 L 300 0" />
+    
+    <!-- Eyes (Hexagons) -->
+    <!-- Left Eye -->
+    <path d="M 20 180 L 80 130 L 160 130 L 180 180 L 160 230 L 80 230 Z" />
+    <polygon points="90,180 110,165 130,180 130,200 110,215 90,200" fill="#B2D2B2" stroke="none"/>
+    
+    <!-- Right Eye -->
+    <path d="M 380 180 L 320 130 L 240 130 L 220 180 L 240 230 L 320 230 Z" />
+    <polygon points="270,180 290,165 310,180 310,200 290,215 270,200" fill="#B2D2B2" stroke="none"/>
+    
+    <!-- Beak -->
+    <path d="M 180 220 L 200 280 L 220 220" />
+    
+    <!-- Face Outline Connectors -->
+    <path d="M 20 180 L 0 100" />
+    <path d="M 380 180 L 400 100" />
+    <path d="M 180 180 L 200 240 L 220 180" />
+  </g>
+</svg>

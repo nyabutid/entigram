@@ -1,0 +1,5 @@
+
+packages:
+  - Salesforce
+  - SupplyChain
+cli_engine: Antigravity

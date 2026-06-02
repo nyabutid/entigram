@@ -1,0 +1,325 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix mk: <http://entigram.ai/ontology/custom#> .
+
+mk:Ontology a owl:Ontology ;
+    rdfs:label "Entigram Generated Ontology" ;
+    mk:generatedAt "2026-05-18T12:17:33.348654" .
+
+mk:Project a owl:Class ;
+    rdfs:label "Project" .
+
+mk:Package a owl:Class ;
+    rdfs:label "Package" .
+
+mk:Package_Template a owl:Class ;
+    rdfs:label "Package_Template" .
+
+mk:Skill a owl:Class ;
+    rdfs:label "Skill" .
+
+mk:Migration a owl:Class ;
+    rdfs:label "Migration" .
+
+mk:Decision a owl:Class ;
+    rdfs:label "Decision" .
+
+mk:Vulnerability_Finding a owl:Class ;
+    rdfs:label "Vulnerability_Finding" .
+
+mk:Security_Bypass a owl:Class ;
+    rdfs:label "Security_Bypass" .
+
+mk:Project_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Project ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Project_path a owl:DatatypeProperty ;
+    rdfs:domain mk:Project ;
+    rdfs:range xsd:string ;
+    rdfs:label "path" .
+
+mk:Project_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Project ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Package_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Package ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Package_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Package ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Package_description a owl:DatatypeProperty ;
+    rdfs:domain mk:Package ;
+    rdfs:range xsd:string ;
+    rdfs:label "description" .
+
+mk:Package_Template_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Package_Template ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Package_Template_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Package_Template ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Package_Template_source_path a owl:DatatypeProperty ;
+    rdfs:domain mk:Package_Template ;
+    rdfs:range xsd:string ;
+    rdfs:label "source_path" .
+
+mk:Skill_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Skill ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Skill_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Skill ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Skill_instructions a owl:DatatypeProperty ;
+    rdfs:domain mk:Skill ;
+    rdfs:range xsd:string ;
+    rdfs:label "instructions" .
+
+mk:Migration_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Migration ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Migration_filename a owl:DatatypeProperty ;
+    rdfs:domain mk:Migration ;
+    rdfs:range xsd:string ;
+    rdfs:label "filename" .
+
+mk:Migration_executed_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Migration ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "executed_at" .
+
+mk:Decision_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Decision ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Decision_conflict_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Decision ;
+    rdfs:range xsd:string ;
+    rdfs:label "conflict_id" .
+
+mk:Decision_resolved_state a owl:DatatypeProperty ;
+    rdfs:domain mk:Decision ;
+    rdfs:range xsd:string ;
+    rdfs:label "resolved_state" .
+
+mk:Decision_rationale a owl:DatatypeProperty ;
+    rdfs:domain mk:Decision ;
+    rdfs:range xsd:string ;
+    rdfs:label "rationale" .
+
+mk:Vulnerability_Finding_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Vulnerability_Finding ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Vulnerability_Finding_vulnerability_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Vulnerability_Finding ;
+    rdfs:range xsd:string ;
+    rdfs:label "vulnerability_id" .
+
+mk:Vulnerability_Finding_severity a owl:DatatypeProperty ;
+    rdfs:domain mk:Vulnerability_Finding ;
+    rdfs:range xsd:string ;
+    rdfs:label "severity" .
+
+mk:Vulnerability_Finding_description a owl:DatatypeProperty ;
+    rdfs:domain mk:Vulnerability_Finding ;
+    rdfs:range xsd:string ;
+    rdfs:label "description" .
+
+mk:Vulnerability_Finding_detected_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Vulnerability_Finding ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "detected_at" .
+
+mk:Security_Bypass_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Security_Bypass ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Security_Bypass_vulnerability_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Security_Bypass ;
+    rdfs:range xsd:string ;
+    rdfs:label "vulnerability_id" .
+
+mk:Security_Bypass_rationale a owl:DatatypeProperty ;
+    rdfs:domain mk:Security_Bypass ;
+    rdfs:range xsd:string ;
+    rdfs:label "rationale" .
+
+mk:Security_Bypass_authorized_by a owl:DatatypeProperty ;
+    rdfs:domain mk:Security_Bypass ;
+    rdfs:range xsd:string ;
+    rdfs:label "authorized_by" .
+
+mk:Security_Bypass_authorized_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Security_Bypass ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "authorized_at" .
+
+mk:relates_Project_to_Package a owl:ObjectProperty ;
+    rdfs:domain mk:Project ;
+    rdfs:range mk:Package ;
+    rdfs:label "relates" .
+
+mk:relates_Package_to_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Project_to_Package ;
+    rdfs:domain mk:Package ;
+    rdfs:range mk:Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Package rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Package_to_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Package_to_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Package_Template_to_Package a owl:ObjectProperty ;
+    rdfs:domain mk:Package_Template ;
+    rdfs:range mk:Package ;
+    rdfs:label "relates" .
+
+mk:relates_Package_to_Package_Template a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Package_Template_to_Package ;
+    rdfs:domain mk:Package ;
+    rdfs:range mk:Package_Template ;
+    rdfs:label "inverse_relates" .
+
+mk:Package rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Package_to_Package_Template ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Package_to_Package_Template ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Package_to_Skill a owl:ObjectProperty ;
+    rdfs:domain mk:Package ;
+    rdfs:range mk:Skill ;
+    rdfs:label "relates" .
+
+mk:relates_Skill_to_Package a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Package_to_Skill ;
+    rdfs:domain mk:Skill ;
+    rdfs:range mk:Package ;
+    rdfs:label "inverse_relates" .
+
+mk:Skill rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Skill_to_Package ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Skill_to_Package ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Project_to_Migration a owl:ObjectProperty ;
+    rdfs:domain mk:Project ;
+    rdfs:range mk:Migration ;
+    rdfs:label "relates" .
+
+mk:relates_Migration_to_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Project_to_Migration ;
+    rdfs:domain mk:Migration ;
+    rdfs:range mk:Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Migration rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Migration_to_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Migration_to_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Project_to_Decision a owl:ObjectProperty ;
+    rdfs:domain mk:Project ;
+    rdfs:range mk:Decision ;
+    rdfs:label "relates" .
+
+mk:relates_Decision_to_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Project_to_Decision ;
+    rdfs:domain mk:Decision ;
+    rdfs:range mk:Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Decision rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Decision_to_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Decision_to_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Package_to_Vulnerability_Finding a owl:ObjectProperty ;
+    rdfs:domain mk:Package ;
+    rdfs:range mk:Vulnerability_Finding ;
+    rdfs:label "relates" .
+
+mk:relates_Vulnerability_Finding_to_Package a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Package_to_Vulnerability_Finding ;
+    rdfs:domain mk:Vulnerability_Finding ;
+    rdfs:range mk:Package ;
+    rdfs:label "inverse_relates" .
+
+mk:Vulnerability_Finding rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Vulnerability_Finding_to_Package ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Vulnerability_Finding_to_Package ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Package_to_Security_Bypass a owl:ObjectProperty ;
+    rdfs:domain mk:Package ;
+    rdfs:range mk:Security_Bypass ;
+    rdfs:label "relates" .
+
+mk:relates_Security_Bypass_to_Package a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Package_to_Security_Bypass ;
+    rdfs:domain mk:Security_Bypass ;
+    rdfs:range mk:Package ;
+    rdfs:label "inverse_relates" .
+
+mk:Security_Bypass rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Security_Bypass_to_Package ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Security_Bypass_to_Package ;
+        owl:minCardinality 1
+    ] .

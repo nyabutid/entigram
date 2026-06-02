@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "entigram-ai"
+version = "0.0.1"
+description = "Schema-first semantic governance layer for enterprise agents"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "Entigram Authors" }
+]
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "streamlit>=1.35.0",
+    "pysqlite3",
+    "pyyaml",
+    "networkx",
+    "inflect",
+    "protobuf>=5.26.1",
+    "requests"
+]
+
+[project.scripts]
+etg = "entigram.cli_runner.etg_cli:main"
+
+[tool.setuptools]
+packages = [
+    "entigram", 
+    "entigram.cli_runner", 
+    "entigram.governance", 
+    "entigram.schema_compiler", 
+    "entigram.ontology_compiler", 
+    "entigram.sensing", 
+    "entigram.sqlite_ledger", 
+    "entigram.ui", 
+    "entigram.templates"
+]
+
+[tool.setuptools.package-data]
+"*" = ["*.lds", "*.ttl", "*.md", "*.html", "*.py"]

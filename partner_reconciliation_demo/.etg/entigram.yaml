@@ -1,0 +1,5 @@
+
+packages:
+  - TechCorp_Logistics
+  - SupplyChain
+cli_engine: Antigravity

@@ -1,0 +1,52 @@
+# Node/Python Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Local Compiler Outputs
+.etg-build/
+
+# Entigram temporary boot vectors
+boot.json
+.etg/boot.json
+.etg/boot_vector.json
+**/.etg/boot.json
+**/.etg/boot_vector.json
+**/.etg/*.db
+**/.etg/states/*.db
+**/.etg/states/**/*.db
+
+# Env
+.env
+
+# Allow Entigram metadata but ignore SQLite temp files
+!.etg/
+.etg/*.db-shm
+.etg/*.db-wal
+.etg/*.db-journal
+
+# Local session and debug artifacts
+projects.json
+debug_mermaid.py
+interview_prompt.mdcross_domain_demo/
+
+# Private strategy and open-source preparation notes
+/private/
+/ENTIGRAM_VALUE_RESEARCH.md
+/ENTIGRAM_COMPETITIVE_CLARITY.md
+/FRESH_REPOSITORY_PREP.md
+/spec/AGENTING_DEPLOYMENT_ROADMAP.md
+/spec/INTEGRATION_ROADMAP.md
+*STRATEGY*.md
+*COMPETITIVE*.md
+*VALUE_RESEARCH*.md
+
+# Build & Distribution
+build/
+dist/
+*.egg-info/
+*.tar.gz
+
+# Virtual Environment
+.venv/

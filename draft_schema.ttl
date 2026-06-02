@@ -1,0 +1,905 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix mk: <http://entigram.ai/ontology/custom#> .
+
+mk:Ontology a owl:Ontology ;
+    rdfs:label "Entigram Generated Ontology" ;
+    mk:generatedAt "2026-05-26T21:12:01.212152" .
+
+mk:Entigram_Project a owl:Class ;
+    rdfs:label "Entigram_Project" .
+
+mk:Idea a owl:Class ;
+    rdfs:label "Idea" .
+
+mk:SF_Product a owl:Class ;
+    rdfs:label "SF_Product" .
+
+mk:SF_OpportunityLineItem a owl:Class ;
+    rdfs:label "SF_OpportunityLineItem" .
+
+mk:Entigram_Package a owl:Class ;
+    rdfs:label "Entigram_Package" .
+
+mk:Entigram_Agent a owl:Class ;
+    rdfs:label "Entigram_Agent" .
+
+mk:Entigram_Conflict a owl:Class ;
+    rdfs:label "Entigram_Conflict" .
+
+mk:Entigram_Resolution a owl:Class ;
+    rdfs:label "Entigram_Resolution" .
+
+mk:Entigram_Alignment a owl:Class ;
+    rdfs:label "Entigram_Alignment" .
+
+mk:Entigram_Synonym a owl:Class ;
+    rdfs:label "Entigram_Synonym" .
+
+mk:Partner_Organization a owl:Class ;
+    rdfs:label "Partner_Organization" .
+
+mk:Vulnerability_Finding a owl:Class ;
+    rdfs:label "Vulnerability_Finding" .
+
+mk:Security_Bypass a owl:Class ;
+    rdfs:label "Security_Bypass" .
+
+mk:Migration a owl:Class ;
+    rdfs:label "Migration" .
+
+mk:Salesforce_Integration a owl:Class ;
+    rdfs:label "Salesforce_Integration" .
+
+mk:Inventory_Forecast a owl:Class ;
+    rdfs:label "Inventory_Forecast" .
+
+mk:Warehouse a owl:Class ;
+    rdfs:label "Warehouse" .
+
+mk:Inventory_Item a owl:Class ;
+    rdfs:label "Inventory_Item" .
+
+mk:Supplier a owl:Class ;
+    rdfs:label "Supplier" .
+
+mk:Product a owl:Class ;
+    rdfs:label "Product" .
+
+mk:Entigram_Project_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Project_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Entigram_Project_path a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range xsd:string ;
+    rdfs:label "path" .
+
+mk:Entigram_Project_version a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range xsd:string ;
+    rdfs:label "version" .
+
+mk:Entigram_Project_current_phase a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range xsd:string ;
+    rdfs:label "current_phase" .
+
+mk:Idea_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Idea ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Idea_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Idea ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:SF_Product_id a owl:DatatypeProperty ;
+    rdfs:domain mk:SF_Product ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:SF_Product_product_code a owl:DatatypeProperty ;
+    rdfs:domain mk:SF_Product ;
+    rdfs:range xsd:string ;
+    rdfs:label "product_code" .
+
+mk:SF_OpportunityLineItem_id a owl:DatatypeProperty ;
+    rdfs:domain mk:SF_OpportunityLineItem ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:SF_OpportunityLineItem_quantity a owl:DatatypeProperty ;
+    rdfs:domain mk:SF_OpportunityLineItem ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "quantity" .
+
+mk:Entigram_Package_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Package ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Package_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Package ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Entigram_Package_description a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Package ;
+    rdfs:range xsd:string ;
+    rdfs:label "description" .
+
+mk:Entigram_Package_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Package ;
+    rdfs:range xsd:string ;
+    rdfs:label "type" .
+
+mk:Entigram_Agent_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Agent_role a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "role" .
+
+mk:Entigram_Agent_constraints a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "constraints" .
+
+mk:Entigram_Agent_directives a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "directives" .
+
+mk:Entigram_Agent_package a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "package" .
+
+mk:Entigram_Conflict_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Conflict ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Conflict_conflict_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Conflict ;
+    rdfs:range xsd:string ;
+    rdfs:label "conflict_id" .
+
+mk:Entigram_Conflict_entity_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Conflict ;
+    rdfs:range xsd:string ;
+    rdfs:label "entity_type" .
+
+mk:Entigram_Conflict_proposed_states a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Conflict ;
+    rdfs:range xsd:string ;
+    rdfs:label "proposed_states" .
+
+mk:Entigram_Conflict_source_agents a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Conflict ;
+    rdfs:range xsd:string ;
+    rdfs:label "source_agents" .
+
+mk:Entigram_Conflict_timestamp a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Conflict ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "timestamp" .
+
+mk:Entigram_Resolution_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Resolution ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Resolution_conflict_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Resolution ;
+    rdfs:range xsd:string ;
+    rdfs:label "conflict_id" .
+
+mk:Entigram_Resolution_entity_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Resolution ;
+    rdfs:range xsd:string ;
+    rdfs:label "entity_type" .
+
+mk:Entigram_Resolution_resolved_state a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Resolution ;
+    rdfs:range xsd:string ;
+    rdfs:label "resolved_state" .
+
+mk:Entigram_Resolution_rationale a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Resolution ;
+    rdfs:range xsd:string ;
+    rdfs:label "rationale" .
+
+mk:Entigram_Resolution_version a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Resolution ;
+    rdfs:range xsd:integer ;
+    rdfs:label "version" .
+
+mk:Entigram_Resolution_timestamp a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Resolution ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "timestamp" .
+
+mk:Entigram_Alignment_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Alignment_source_domain a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "source_domain" .
+
+mk:Entigram_Alignment_target_domain a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "target_domain" .
+
+mk:Entigram_Alignment_source_concept a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "source_concept" .
+
+mk:Entigram_Alignment_target_concept a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "target_concept" .
+
+mk:Entigram_Alignment_relation a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "relation" .
+
+mk:Entigram_Alignment_confidence a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "confidence" .
+
+mk:Entigram_Alignment_rationale a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "rationale" .
+
+mk:Entigram_Alignment_verified a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "verified" .
+
+mk:Entigram_Synonym_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Synonym ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Synonym_term a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Synonym ;
+    rdfs:range xsd:string ;
+    rdfs:label "term" .
+
+mk:Entigram_Synonym_synonym a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Synonym ;
+    rdfs:range xsd:string ;
+    rdfs:label "synonym" .
+
+mk:Entigram_Synonym_confidence a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Synonym ;
+    rdfs:range xsd:string ;
+    rdfs:label "confidence" .
+
+mk:Partner_Organization_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Partner_Organization_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Partner_Organization_remote_endpoint a owl:DatatypeProperty ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range xsd:string ;
+    rdfs:label "remote_endpoint" .
+
+mk:Partner_Organization_trust_level a owl:DatatypeProperty ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range xsd:string ;
+    rdfs:label "trust_level" .
+
+mk:Partner_Organization_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range xsd:string ;
+    rdfs:label "status" .
+
+mk:Vulnerability_Finding_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Vulnerability_Finding ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Vulnerability_Finding_vulnerability_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Vulnerability_Finding ;
+    rdfs:range xsd:string ;
+    rdfs:label "vulnerability_id" .
+
+mk:Vulnerability_Finding_severity a owl:DatatypeProperty ;
+    rdfs:domain mk:Vulnerability_Finding ;
+    rdfs:range xsd:string ;
+    rdfs:label "severity" .
+
+mk:Vulnerability_Finding_description a owl:DatatypeProperty ;
+    rdfs:domain mk:Vulnerability_Finding ;
+    rdfs:range xsd:string ;
+    rdfs:label "description" .
+
+mk:Vulnerability_Finding_detected_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Vulnerability_Finding ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "detected_at" .
+
+mk:Security_Bypass_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Security_Bypass ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Security_Bypass_vulnerability_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Security_Bypass ;
+    rdfs:range xsd:string ;
+    rdfs:label "vulnerability_id" .
+
+mk:Security_Bypass_rationale a owl:DatatypeProperty ;
+    rdfs:domain mk:Security_Bypass ;
+    rdfs:range xsd:string ;
+    rdfs:label "rationale" .
+
+mk:Security_Bypass_authorized_by a owl:DatatypeProperty ;
+    rdfs:domain mk:Security_Bypass ;
+    rdfs:range xsd:string ;
+    rdfs:label "authorized_by" .
+
+mk:Security_Bypass_authorized_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Security_Bypass ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "authorized_at" .
+
+mk:Migration_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Migration ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Migration_filename a owl:DatatypeProperty ;
+    rdfs:domain mk:Migration ;
+    rdfs:range xsd:string ;
+    rdfs:label "filename" .
+
+mk:Migration_executed_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Migration ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "executed_at" .
+
+mk:Salesforce_Integration_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Salesforce_Integration ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Salesforce_Integration_sf_org_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Salesforce_Integration ;
+    rdfs:range xsd:string ;
+    rdfs:label "sf_org_id" .
+
+mk:Salesforce_Integration_sync_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Salesforce_Integration ;
+    rdfs:range xsd:string ;
+    rdfs:label "sync_status" .
+
+mk:Salesforce_Integration_last_forecast_date a owl:DatatypeProperty ;
+    rdfs:domain mk:Salesforce_Integration ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "last_forecast_date" .
+
+mk:Inventory_Forecast_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Inventory_Forecast ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Inventory_Forecast_product_sku a owl:DatatypeProperty ;
+    rdfs:domain mk:Inventory_Forecast ;
+    rdfs:range xsd:string ;
+    rdfs:label "product_sku" .
+
+mk:Inventory_Forecast_forecasted_demand a owl:DatatypeProperty ;
+    rdfs:domain mk:Inventory_Forecast ;
+    rdfs:range xsd:integer ;
+    rdfs:label "forecasted_demand" .
+
+mk:Inventory_Forecast_confidence_interval a owl:DatatypeProperty ;
+    rdfs:domain mk:Inventory_Forecast ;
+    rdfs:range xsd:string ;
+    rdfs:label "confidence_interval" .
+
+mk:Warehouse_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Warehouse ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Warehouse_location_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Warehouse ;
+    rdfs:range xsd:string ;
+    rdfs:label "location_name" .
+
+mk:Warehouse_capacity a owl:DatatypeProperty ;
+    rdfs:domain mk:Warehouse ;
+    rdfs:range xsd:integer ;
+    rdfs:label "capacity" .
+
+mk:Inventory_Item_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Inventory_Item ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Inventory_Item_quantity a owl:DatatypeProperty ;
+    rdfs:domain mk:Inventory_Item ;
+    rdfs:range xsd:integer ;
+    rdfs:label "quantity" .
+
+mk:Inventory_Item_last_updated a owl:DatatypeProperty ;
+    rdfs:domain mk:Inventory_Item ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "last_updated" .
+
+mk:Supplier_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Supplier ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Supplier_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Supplier ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Supplier_tax_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Supplier ;
+    rdfs:range xsd:string ;
+    rdfs:label "tax_id" .
+
+mk:Supplier_rating a owl:DatatypeProperty ;
+    rdfs:domain mk:Supplier ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "rating" .
+
+mk:Product_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Product ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Product_sku a owl:DatatypeProperty ;
+    rdfs:domain mk:Product ;
+    rdfs:range xsd:string ;
+    rdfs:label "sku" .
+
+mk:Product_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Product ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Product_category a owl:DatatypeProperty ;
+    rdfs:domain mk:Product ;
+    rdfs:range xsd:string ;
+    rdfs:label "category" .
+
+mk:Product_supplier_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Product ;
+    rdfs:range xsd:string ;
+    rdfs:label "supplier_id" .
+
+mk:relates_Entigram_Project_to_Entigram_Package a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Package ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Package_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Package ;
+    rdfs:domain mk:Entigram_Package ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Package rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Package_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Package_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Package_to_Entigram_Agent a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Package ;
+    rdfs:range mk:Entigram_Agent ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Agent_to_Entigram_Package a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Package_to_Entigram_Agent ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range mk:Entigram_Package ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Agent rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Agent_to_Entigram_Package ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Agent_to_Entigram_Package ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Entigram_Conflict a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Conflict ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Conflict_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Conflict ;
+    rdfs:domain mk:Entigram_Conflict ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Conflict rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Conflict_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Conflict_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Entigram_Resolution a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Resolution ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Resolution_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Resolution ;
+    rdfs:domain mk:Entigram_Resolution ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Resolution rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Resolution_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Resolution_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Entigram_Alignment a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Alignment ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Alignment_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Alignment ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Alignment rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Alignment_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Alignment_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Entigram_Synonym a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Synonym ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Synonym_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Synonym ;
+    rdfs:domain mk:Entigram_Synonym ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Synonym rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Synonym_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Synonym_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Partner_Organization a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Partner_Organization ;
+    rdfs:label "relates" .
+
+mk:relates_Partner_Organization_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Partner_Organization ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Partner_Organization rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Partner_Organization_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Partner_Organization_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Migration a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Migration ;
+    rdfs:label "relates" .
+
+mk:relates_Migration_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Migration ;
+    rdfs:domain mk:Migration ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Migration rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Migration_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Migration_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Package_to_Vulnerability_Finding a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Package ;
+    rdfs:range mk:Vulnerability_Finding ;
+    rdfs:label "relates" .
+
+mk:relates_Vulnerability_Finding_to_Entigram_Package a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Package_to_Vulnerability_Finding ;
+    rdfs:domain mk:Vulnerability_Finding ;
+    rdfs:range mk:Entigram_Package ;
+    rdfs:label "inverse_relates" .
+
+mk:Vulnerability_Finding rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Vulnerability_Finding_to_Entigram_Package ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Vulnerability_Finding_to_Entigram_Package ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Package_to_Security_Bypass a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Package ;
+    rdfs:range mk:Security_Bypass ;
+    rdfs:label "relates" .
+
+mk:relates_Security_Bypass_to_Entigram_Package a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Package_to_Security_Bypass ;
+    rdfs:domain mk:Security_Bypass ;
+    rdfs:range mk:Entigram_Package ;
+    rdfs:label "inverse_relates" .
+
+mk:Security_Bypass rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Security_Bypass_to_Entigram_Package ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Security_Bypass_to_Entigram_Package ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Partner_Organization_to_Entigram_Alignment a owl:ObjectProperty ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range mk:Entigram_Alignment ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Alignment_to_Partner_Organization a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Partner_Organization_to_Entigram_Alignment ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range mk:Partner_Organization ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Alignment rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Alignment_to_Partner_Organization ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Alignment_to_Partner_Organization ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Salesforce_Integration_to_Inventory_Forecast a owl:ObjectProperty ;
+    rdfs:domain mk:Salesforce_Integration ;
+    rdfs:range mk:Inventory_Forecast ;
+    rdfs:label "relates" .
+
+mk:relates_Inventory_Forecast_to_Salesforce_Integration a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Salesforce_Integration_to_Inventory_Forecast ;
+    rdfs:domain mk:Inventory_Forecast ;
+    rdfs:range mk:Salesforce_Integration ;
+    rdfs:label "inverse_relates" .
+
+mk:Inventory_Forecast rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Inventory_Forecast_to_Salesforce_Integration ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Inventory_Forecast_to_Salesforce_Integration ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Idea_to_Partner_Organization a owl:ObjectProperty ;
+    rdfs:domain mk:Idea ;
+    rdfs:range mk:Partner_Organization ;
+    rdfs:label "relates" .
+
+mk:Idea rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Idea_to_Partner_Organization ;
+        owl:maxCardinality 1
+    ] .
+
+mk:relates_Partner_Organization_to_Idea a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Idea_to_Partner_Organization ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range mk:Idea ;
+    rdfs:label "inverse_relates" .
+
+mk:Partner_Organization rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Partner_Organization_to_Idea ;
+        owl:maxCardinality 1
+    ] .
+
+mk:relates_Partner_Organization_to_Supplier a owl:ObjectProperty ;
+    rdfs:domain mk:Partner_Organization ;
+    rdfs:range mk:Supplier ;
+    rdfs:label "relates" .
+
+mk:Partner_Organization rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Partner_Organization_to_Supplier ;
+        owl:maxCardinality 1
+    ] .
+
+mk:relates_Supplier_to_Partner_Organization a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Partner_Organization_to_Supplier ;
+    rdfs:domain mk:Supplier ;
+    rdfs:range mk:Partner_Organization ;
+    rdfs:label "inverse_relates" .
+
+mk:Supplier rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Supplier_to_Partner_Organization ;
+        owl:maxCardinality 1
+    ] .
+
+mk:relates_Product_to_SF_Product a owl:ObjectProperty ;
+    rdfs:domain mk:Product ;
+    rdfs:range mk:SF_Product ;
+    rdfs:label "relates" .
+
+mk:Product rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Product_to_SF_Product ;
+        owl:maxCardinality 1
+    ] .
+
+mk:relates_SF_Product_to_Product a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Product_to_SF_Product ;
+    rdfs:domain mk:SF_Product ;
+    rdfs:range mk:Product ;
+    rdfs:label "inverse_relates" .
+
+mk:SF_Product rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_SF_Product_to_Product ;
+        owl:maxCardinality 1
+    ] .
+
+mk:relates_SF_Product_to_SF_OpportunityLineItem a owl:ObjectProperty ;
+    rdfs:domain mk:SF_Product ;
+    rdfs:range mk:SF_OpportunityLineItem ;
+    rdfs:label "relates" .
+
+mk:relates_SF_OpportunityLineItem_to_SF_Product a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_SF_Product_to_SF_OpportunityLineItem ;
+    rdfs:domain mk:SF_OpportunityLineItem ;
+    rdfs:range mk:SF_Product ;
+    rdfs:label "inverse_relates" .
+
+mk:SF_OpportunityLineItem rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_SF_OpportunityLineItem_to_SF_Product ;
+        owl:maxCardinality 1
+    ] .
+
+mk:relates_Warehouse_to_Inventory_Item a owl:ObjectProperty ;
+    rdfs:domain mk:Warehouse ;
+    rdfs:range mk:Inventory_Item ;
+    rdfs:label "relates" .
+
+mk:relates_Inventory_Item_to_Warehouse a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Warehouse_to_Inventory_Item ;
+    rdfs:domain mk:Inventory_Item ;
+    rdfs:range mk:Warehouse ;
+    rdfs:label "inverse_relates" .
+
+mk:Inventory_Item rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Inventory_Item_to_Warehouse ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Inventory_Item_to_Warehouse ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Product_to_Inventory_Item a owl:ObjectProperty ;
+    rdfs:domain mk:Product ;
+    rdfs:range mk:Inventory_Item ;
+    rdfs:label "relates" .
+
+mk:relates_Inventory_Item_to_Product a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Product_to_Inventory_Item ;
+    rdfs:domain mk:Inventory_Item ;
+    rdfs:range mk:Product ;
+    rdfs:label "inverse_relates" .
+
+mk:Inventory_Item rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Inventory_Item_to_Product ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Inventory_Item_to_Product ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Supplier_to_Product a owl:ObjectProperty ;
+    rdfs:domain mk:Supplier ;
+    rdfs:range mk:Product ;
+    rdfs:label "relates" .
+
+mk:relates_Product_to_Supplier a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Supplier_to_Product ;
+    rdfs:domain mk:Product ;
+    rdfs:range mk:Supplier ;
+    rdfs:label "inverse_relates" .
+
+mk:Product rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Product_to_Supplier ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Product_to_Supplier ;
+        owl:minCardinality 1
+    ] .
