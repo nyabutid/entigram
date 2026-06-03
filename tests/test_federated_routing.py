@@ -61,6 +61,17 @@ class TestFederatedRouter(unittest.TestCase):
         conn.close()
 
         self.router = FederatedRouter(str(self.test_dir))
+        
+        # New Enforcement: Authorize the alignment before querying cross-domain
+        self.broker = EntigramBroker(str(self.test_dir))
+        self.broker.ledger.record_alignment(
+            source_domain="TestPF",
+            target_domain="TestBanking",
+            source_concept="SpendingLimit.account_id",
+            target_concept="Account.id",
+            confidence=1.0,
+            rationale="Test authorization"
+        )
 
     def tearDown(self):
         if self.test_dir.exists():
