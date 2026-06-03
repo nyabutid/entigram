@@ -26,6 +26,7 @@ from entigram.utils import find_project_root
 
 # Favicon path
 favicon_path = os.path.join(os.path.dirname(__file__), "media", "favicon.svg")
+logo_path = os.path.join(os.path.dirname(__file__), "media", "logo.svg")
 
 st.set_page_config(
     page_title="Entigram Compiler", 
@@ -138,6 +139,8 @@ st.markdown("""
 target_dir = st.session_state.active_project
 
 with st.sidebar:
+    if os.path.exists(logo_path):
+        st.image(logo_path, use_container_width=True)
     st.header("Projects")
     try:
         app_version = version("entigram-ai")

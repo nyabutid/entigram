@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="entigram/ui/media/logo.svg" alt="Entigram" width="520">
+</p>
+
 # Entigram: The Semantic Governance Layer for Enterprise Agents
 
 **Entigram** is a schema-first control plane for enterprise agents that grounds agent behavior in verified domain models, approved semantic alignments, and auditable state transitions.
