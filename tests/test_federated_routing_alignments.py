@@ -11,18 +11,16 @@ from entigram.sqlite_ledger.injector import DomainSQLiteInjector
 
 class TestFederatedRouterAlignments(unittest.TestCase):
     def setUp(self):
-        self.test_dir = Path("test_workspace_alignments")
+        self.test_dir = Path("test_workspace_alignments").absolute()
         if self.test_dir.exists():
             shutil.rmtree(self.test_dir)
-        self.test_dir.mkdir()
+        self.test_dir.mkdir(parents=True, exist_ok=True)
 
         # 1. Setup a workspace with two domains: Banking and PartnerPortal
         packages = ["Banking", "PartnerPortal"]
         inject_entigram_manifest(str(self.test_dir), packages, "Antigravity")
         
         # 2. Create package directories and Schema files
-        # Banking has Account(id, owner)
-        # PartnerPortal has Profile(id, bank_ref) where bank_ref -> Account.id
         for pkg in packages:
             pkg_dir = self.test_dir / "packages" / pkg
             pkg_dir.mkdir(parents=True, exist_ok=True)
@@ -45,17 +43,21 @@ class TestFederatedRouterAlignments(unittest.TestCase):
 
         # 3. Inject SQLite databases
         injector = DomainSQLiteInjector(str(self.test_dir))
+        # Ensure states dir exists
+        (self.test_dir / ".etg" / "states").mkdir(parents=True, exist_ok=True)
         injector.inject_all_active()
 
         # 4. Populate some data
         banking_db = self.test_dir / ".etg" / "states" / "Banking.db"
-        conn = sqlite3.connect(banking_db)
+        conn = sqlite3.connect(str(banking_db))
+        conn.execute("CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, owner TEXT)")
         conn.execute("INSERT INTO accounts (id, owner) VALUES ('acc-1', 'Alice')")
         conn.commit()
         conn.close()
 
         partner_db = self.test_dir / ".etg" / "states" / "PartnerPortal.db"
-        conn = sqlite3.connect(partner_db)
+        conn = sqlite3.connect(str(partner_db))
+        conn.execute("CREATE TABLE IF NOT EXISTS profiles (id TEXT PRIMARY KEY, bank_ref TEXT, bio TEXT)")
         conn.execute("INSERT INTO profiles (id, bank_ref, bio) VALUES ('prof-1', 'acc-1', 'Loves code')")
         conn.commit()
         conn.close()
