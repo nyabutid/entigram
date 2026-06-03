@@ -80,7 +80,7 @@ ATTRIBUTES:
         with patch('builtins.input', return_value='y'):
             success, output = self.run_cli(['interview'])
             self.assertFalse(success)
-            self.assertIn("Did you run 'etg init'?", output)
+            self.assertIn("Run 'etg init' first.", output)
 
     @patch('entigram.cli_runner.etg_cli.launch_agent')
     def test_interview_command_success(self, mock_launch):

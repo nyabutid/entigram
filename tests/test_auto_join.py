@@ -54,8 +54,8 @@ class TestAutoJoinDiscovery(unittest.TestCase):
             shutil.rmtree(self.test_dir)
 
     def test_auto_join_discovery_on_query(self):
-        # We do NOT authorize any alignment here.
-        # The router should discover Order.customer_ref -> Customer.id automatically.
+        # 1. Closed-World Enforcement: The join should be discovered but BLOCKED for execution
+        # because it is cross-domain (Banking != SupplyChain) and unverified.
         
         graphql = """
         {
@@ -74,19 +74,44 @@ class TestAutoJoinDiscovery(unittest.TestCase):
         alice = results[0]
         self.assertEqual(alice['name'], 'Alice')
         
-        self.assertIn('Order', alice)
-        order = alice['Order']
-        self.assertIsNotNone(order)
-        self.assertEqual(order['amount'], 99.99)
+        # Should be None because it's cross-domain and unverified
+        self.assertIsNone(alice.get('Order'))
         
-        # Verify that an alignment was actually recorded in the ledger
-        alignments = self.broker.ledger.get_alignments()
+        # 2. Verify that an alignment PROPOSAL was recorded in the ledger
+        alignments = self.broker.ledger.get_alignments(trusted_only=False)
         found = False
+        proposal_id = None
         for aln in alignments:
             if "Order.customer_ref" in aln['source_concept'] or "Order.customer_ref" in aln['target_concept']:
                 found = True
-                self.assertIn("Auto-Discovered", aln['rationale'])
-        self.assertTrue(found, "Router should have recorded an auto-discovered alignment")
+                proposal_id = aln['id']
+                self.assertIn("Heuristic", aln['rationale'])
+        self.assertTrue(found, "Router should have recorded an auto-discovered alignment proposal")
+
+        # 3. Authorize the alignment and re-run
+        # We need the full details from the proposal
+        proposal = None
+        for aln in alignments:
+            if aln['id'] == proposal_id:
+                proposal = aln
+                break
+        
+        self.broker.authorize_alignment(
+            source_domain=proposal['source_domain'],
+            target_domain=proposal['target_domain'],
+            source_concept=proposal['source_concept'],
+            target_concept=proposal['target_concept'],
+            confidence=1.0,
+            rationale="Human evidence provided"
+        )
+        
+        # Clear router cache
+        self.router._join_cache = {}
+        
+        # Re-run query
+        results = self.router.execute(graphql)
+        self.assertIsNotNone(results[0].get('Order'))
+        self.assertEqual(results[0]['Order']['amount'], 99.99)
 
 if __name__ == "__main__":
     unittest.main()
