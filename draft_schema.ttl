@@ -6,7 +6,7 @@
 
 mk:Ontology a owl:Ontology ;
     rdfs:label "Entigram Generated Ontology" ;
-    mk:generatedAt "2026-05-26T21:12:01.212152" .
+    mk:generatedAt "2026-06-02T19:31:30.519239" .
 
 mk:Entigram_Project a owl:Class ;
     rdfs:label "Entigram_Project" .
@@ -34,6 +34,18 @@ mk:Entigram_Resolution a owl:Class ;
 
 mk:Entigram_Alignment a owl:Class ;
     rdfs:label "Entigram_Alignment" .
+
+mk:Ontology_Concept a owl:Class ;
+    rdfs:label "Ontology_Concept" .
+
+mk:Entigram_Agent_Proposal a owl:Class ;
+    rdfs:label "Entigram_Agent_Proposal" .
+
+mk:Entigram_Grounding_Rule a owl:Class ;
+    rdfs:label "Entigram_Grounding_Rule" .
+
+mk:Entigram_Negative_Constraint a owl:Class ;
+    rdfs:label "Entigram_Negative_Constraint" .
 
 mk:Entigram_Synonym a owl:Class ;
     rdfs:label "Entigram_Synonym" .
@@ -268,6 +280,46 @@ mk:Entigram_Alignment_confidence a owl:DatatypeProperty ;
     rdfs:range xsd:string ;
     rdfs:label "confidence" .
 
+mk:Entigram_Alignment_lifecycle_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "lifecycle_status" .
+
+mk:Entigram_Alignment_evidence_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "evidence_type" .
+
+mk:Entigram_Alignment_source_artifact a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "source_artifact" .
+
+mk:Entigram_Alignment_semantic_confidence a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "semantic_confidence" .
+
+mk:Entigram_Alignment_schema_confidence a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "schema_confidence" .
+
+mk:Entigram_Alignment_data_confidence a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "data_confidence" .
+
+mk:Entigram_Alignment_human_review_confidence a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "human_review_confidence" .
+
+mk:Entigram_Alignment_runtime_observation_confidence a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "runtime_observation_confidence" .
+
 mk:Entigram_Alignment_rationale a owl:DatatypeProperty ;
     rdfs:domain mk:Entigram_Alignment ;
     rdfs:range xsd:string ;
@@ -277,6 +329,176 @@ mk:Entigram_Alignment_verified a owl:DatatypeProperty ;
     rdfs:domain mk:Entigram_Alignment ;
     rdfs:range xsd:boolean ;
     rdfs:label "verified" .
+
+mk:Entigram_Alignment_verified_by a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:string ;
+    rdfs:label "verified_by" .
+
+mk:Entigram_Alignment_verified_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Alignment ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "verified_at" .
+
+mk:Ontology_Concept_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Ontology_Concept ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Ontology_Concept_domain a owl:DatatypeProperty ;
+    rdfs:domain mk:Ontology_Concept ;
+    rdfs:range xsd:string ;
+    rdfs:label "domain" .
+
+mk:Ontology_Concept_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Ontology_Concept ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Ontology_Concept_concept_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Ontology_Concept ;
+    rdfs:range xsd:string ;
+    rdfs:label "concept_type" .
+
+mk:Ontology_Concept_lifecycle_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Ontology_Concept ;
+    rdfs:range xsd:string ;
+    rdfs:label "lifecycle_status" .
+
+mk:Ontology_Concept_source a owl:DatatypeProperty ;
+    rdfs:domain mk:Ontology_Concept ;
+    rdfs:range xsd:string ;
+    rdfs:label "source" .
+
+mk:Ontology_Concept_owner a owl:DatatypeProperty ;
+    rdfs:domain mk:Ontology_Concept ;
+    rdfs:range xsd:string ;
+    rdfs:label "owner" .
+
+mk:Ontology_Concept_verified_by a owl:DatatypeProperty ;
+    rdfs:domain mk:Ontology_Concept ;
+    rdfs:range xsd:string ;
+    rdfs:label "verified_by" .
+
+mk:Ontology_Concept_verified_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Ontology_Concept ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "verified_at" .
+
+mk:Entigram_Agent_Proposal_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Proposal ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Agent_Proposal_agent_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Proposal ;
+    rdfs:range xsd:string ;
+    rdfs:label "agent_id" .
+
+mk:Entigram_Agent_Proposal_affected_domain a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Proposal ;
+    rdfs:range xsd:string ;
+    rdfs:label "affected_domain" .
+
+mk:Entigram_Agent_Proposal_proposed_change a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Proposal ;
+    rdfs:range xsd:string ;
+    rdfs:label "proposed_change" .
+
+mk:Entigram_Agent_Proposal_rationale a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Proposal ;
+    rdfs:range xsd:string ;
+    rdfs:label "rationale" .
+
+mk:Entigram_Agent_Proposal_supporting_evidence a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Proposal ;
+    rdfs:range xsd:string ;
+    rdfs:label "supporting_evidence" .
+
+mk:Entigram_Agent_Proposal_lifecycle_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Proposal ;
+    rdfs:range xsd:string ;
+    rdfs:label "lifecycle_status" .
+
+mk:Entigram_Agent_Proposal_timestamp a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Proposal ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "timestamp" .
+
+mk:Entigram_Grounding_Rule_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Grounding_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Grounding_Rule_domain a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Grounding_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "domain" .
+
+mk:Entigram_Grounding_Rule_rule_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Grounding_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "rule_type" .
+
+mk:Entigram_Grounding_Rule_severity a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Grounding_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "severity" .
+
+mk:Entigram_Grounding_Rule_enabled a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Grounding_Rule ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "enabled" .
+
+mk:Entigram_Grounding_Rule_rationale a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Grounding_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "rationale" .
+
+mk:Entigram_Negative_Constraint_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Negative_Constraint ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Negative_Constraint_source_concept a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Negative_Constraint ;
+    rdfs:range xsd:string ;
+    rdfs:label "source_concept" .
+
+mk:Entigram_Negative_Constraint_target_concept a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Negative_Constraint ;
+    rdfs:range xsd:string ;
+    rdfs:label "target_concept" .
+
+mk:Entigram_Negative_Constraint_relation a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Negative_Constraint ;
+    rdfs:range xsd:string ;
+    rdfs:label "relation" .
+
+mk:Entigram_Negative_Constraint_condition a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Negative_Constraint ;
+    rdfs:range xsd:string ;
+    rdfs:label "condition" .
+
+mk:Entigram_Negative_Constraint_rationale a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Negative_Constraint ;
+    rdfs:range xsd:string ;
+    rdfs:label "rationale" .
+
+mk:Entigram_Negative_Constraint_lifecycle_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Negative_Constraint ;
+    rdfs:range xsd:string ;
+    rdfs:label "lifecycle_status" .
+
+mk:Entigram_Negative_Constraint_verified_by a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Negative_Constraint ;
+    rdfs:range xsd:string ;
+    rdfs:label "verified_by" .
+
+mk:Entigram_Negative_Constraint_verified_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Negative_Constraint ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "verified_at" .
 
 mk:Entigram_Synonym_id a owl:DatatypeProperty ;
     rdfs:domain mk:Entigram_Synonym ;
@@ -626,6 +848,90 @@ mk:Entigram_Synonym rdfs:subClassOf [
     ] , [
         a owl:Restriction ;
         owl:onProperty mk:relates_Entigram_Synonym_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Ontology_Concept a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Ontology_Concept ;
+    rdfs:label "relates" .
+
+mk:relates_Ontology_Concept_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Ontology_Concept ;
+    rdfs:domain mk:Ontology_Concept ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Ontology_Concept rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Ontology_Concept_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Ontology_Concept_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Entigram_Agent_Proposal a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Agent_Proposal ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Agent_Proposal_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Agent_Proposal ;
+    rdfs:domain mk:Entigram_Agent_Proposal ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Agent_Proposal rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Agent_Proposal_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Agent_Proposal_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Entigram_Grounding_Rule a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Grounding_Rule ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Grounding_Rule_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Grounding_Rule ;
+    rdfs:domain mk:Entigram_Grounding_Rule ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Grounding_Rule rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Grounding_Rule_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Grounding_Rule_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Entigram_Negative_Constraint a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Negative_Constraint ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Negative_Constraint_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Negative_Constraint ;
+    rdfs:domain mk:Entigram_Negative_Constraint ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Negative_Constraint rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Negative_Constraint_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Negative_Constraint_to_Entigram_Project ;
         owl:minCardinality 1
     ] .
 
