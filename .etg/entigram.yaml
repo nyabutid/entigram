@@ -1,9 +1,9 @@
 cli_engine: Antigravity
 entigram_version: 0.0.1
 integrity_fingerprint:
-  ontology_checksum: a75e8c0bed3b7b89144142b0422b80c79bb51dc60e04cf1ff74364fc96a0d22f
+  ontology_checksum: 9bd047cca6aade574877618813aa51f9304e0e9bff9f59b1948854dc08b8baf3
   schema_checksum: 38562e9a92b52ececc60ee3f400e9d463b6dba91c343d4b17b051cde9f876329
-last_locked: '2026-06-02 18:52:12'
+last_locked: '2026-06-02 21:57:07'
 last_updated: '2026-06-01 17:54:25'
 packages:
   Entigram Schemas: 0.0.1
