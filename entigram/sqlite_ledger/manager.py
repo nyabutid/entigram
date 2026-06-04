@@ -1,7 +1,8 @@
+import json
 import sqlite3
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import List, Optional, Dict, Any
 from entigram.governance.grounding import (
     EVIDENCE_HUMAN_REVIEW,
     LIFECYCLE_PROPOSED,
@@ -124,6 +125,61 @@ class LedgerManager:
             conn.execute('''
                 CREATE INDEX IF NOT EXISTS idx_resolutions_conflict
                 ON human_resolutions(conflict_id, version)
+            ''')
+            # Table for durable delivery evidence (commissioner passes, command runs, artifact reviews)
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS delivery_evidence (
+                    id INTEGER PRIMARY KEY,
+                    evidence_type TEXT NOT NULL,
+                    expectation_name TEXT,
+                    artifact_ref TEXT NOT NULL,
+                    command TEXT,
+                    result_summary TEXT,
+                    passed INTEGER DEFAULT 1,
+                    agent_id TEXT,
+                    observed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            self._ensure_columns(conn, "delivery_evidence", {
+                "expectation_name": "TEXT",
+                "agent_id": "TEXT",
+            })
+            # Table for agent improvement proposals
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS improvement_proposals (
+                    id INTEGER PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    affected_model TEXT NOT NULL,
+                    proposed_change TEXT NOT NULL,
+                    rationale TEXT NOT NULL,
+                    expected_benefit TEXT,
+                    lifecycle_status TEXT DEFAULT 'Proposed',
+                    created_by TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            # Table for delivery snapshots (frozen boot state at commission pass)
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS delivery_snapshots (
+                    id INTEGER PRIMARY KEY,
+                    snapshot_id TEXT UNIQUE,
+                    expectation_count INTEGER,
+                    missing_proof_count INTEGER,
+                    schema_hash TEXT,
+                    agent_id TEXT,
+                    warden_status TEXT,
+                    evidence_ids TEXT,
+                    metadata TEXT,
+                    snapped_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.execute('''
+                CREATE INDEX IF NOT EXISTS idx_delivery_evidence_expectation
+                ON delivery_evidence(expectation_name, observed_at)
+            ''')
+            conn.execute('''
+                CREATE INDEX IF NOT EXISTS idx_improvement_proposals_status
+                ON improvement_proposals(lifecycle_status, created_at)
             ''')
         if self.db_path != ":memory:":
             conn.close()
@@ -454,6 +510,202 @@ class LedgerManager:
                     "version": r[5]
                 } for r in rows
             ]
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def record_delivery_evidence(
+        self,
+        evidence_type: str,
+        artifact_ref: str,
+        *,
+        expectation_name: Optional[str] = None,
+        command: Optional[str] = None,
+        result_summary: Optional[str] = None,
+        passed: bool = True,
+        agent_id: Optional[str] = None,
+    ) -> Optional[int]:
+        """Persists a durable delivery evidence record. Returns the row ID."""
+        conn = self._get_connection()
+        try:
+            with conn:
+                cursor = conn.execute('''
+                    INSERT INTO delivery_evidence
+                        (evidence_type, expectation_name, artifact_ref, command,
+                         result_summary, passed, agent_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    evidence_type, expectation_name, artifact_ref, command,
+                    result_summary, int(passed), agent_id,
+                ))
+                return cursor.lastrowid
+        except Exception as e:
+            print(f"Ledger Error (DeliveryEvidence): {e}")
+            return None
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def get_delivery_evidence(
+        self,
+        expectation_name: Optional[str] = None,
+        passed_only: bool = False,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Retrieves delivery evidence records."""
+        conn = self._get_connection()
+        try:
+            conditions, params = [], []
+            if expectation_name:
+                conditions.append("expectation_name = ?")
+                params.append(expectation_name)
+            if passed_only:
+                conditions.append("passed = 1")
+            where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+            cursor = conn.execute(
+                f"SELECT id, evidence_type, expectation_name, artifact_ref, command, "
+                f"result_summary, passed, agent_id, observed_at "
+                f"FROM delivery_evidence {where} ORDER BY observed_at DESC LIMIT ?",
+                params + [limit],
+            )
+            return [
+                {
+                    "id": r[0], "evidence_type": r[1], "expectation_name": r[2],
+                    "artifact_ref": r[3], "command": r[4], "result_summary": r[5],
+                    "passed": bool(r[6]), "agent_id": r[7], "observed_at": r[8],
+                }
+                for r in cursor.fetchall()
+            ]
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def record_improvement_proposal(
+        self,
+        title: str,
+        affected_model: str,
+        proposed_change: Dict[str, Any],
+        rationale: str,
+        *,
+        expected_benefit: Optional[str] = None,
+        created_by: Optional[str] = None,
+        lifecycle_status: str = "Proposed",
+    ) -> Optional[int]:
+        """Persists an agent improvement proposal. Returns the row ID."""
+        conn = self._get_connection()
+        try:
+            with conn:
+                cursor = conn.execute('''
+                    INSERT INTO improvement_proposals
+                        (title, affected_model, proposed_change, rationale,
+                         expected_benefit, lifecycle_status, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    title, affected_model, json.dumps(proposed_change), rationale,
+                    expected_benefit, lifecycle_status, created_by,
+                ))
+                return cursor.lastrowid
+        except Exception as e:
+            print(f"Ledger Error (ImprovementProposal): {e}")
+            return None
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def get_improvement_proposals(
+        self,
+        lifecycle_status: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Retrieves improvement proposals."""
+        conn = self._get_connection()
+        try:
+            conditions, params = [], []
+            if lifecycle_status:
+                conditions.append("lifecycle_status = ?")
+                params.append(lifecycle_status)
+            where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+            cursor = conn.execute(
+                f"SELECT id, title, affected_model, proposed_change, rationale, "
+                f"expected_benefit, lifecycle_status, created_by, created_at "
+                f"FROM improvement_proposals {where} ORDER BY created_at DESC LIMIT ?",
+                params + [limit],
+            )
+            rows = []
+            for r in cursor.fetchall():
+                try:
+                    change = json.loads(r[3]) if r[3] else {}
+                except (json.JSONDecodeError, TypeError):
+                    change = {"raw": r[3]}
+                rows.append({
+                    "id": r[0], "title": r[1], "affected_model": r[2],
+                    "proposed_change": change, "rationale": r[4],
+                    "expected_benefit": r[5], "lifecycle_status": r[6],
+                    "created_by": r[7], "created_at": r[8],
+                })
+            return rows
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def record_delivery_snapshot(
+        self,
+        snapshot_id: str,
+        expectation_count: int,
+        missing_proof_count: int,
+        *,
+        schema_hash: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        warden_status: Optional[str] = None,
+        evidence_ids: Optional[List[int]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Persists a frozen delivery snapshot for drift detection."""
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute('''
+                    INSERT INTO delivery_snapshots
+                        (snapshot_id, expectation_count, missing_proof_count, schema_hash,
+                         agent_id, warden_status, evidence_ids, metadata)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(snapshot_id) DO UPDATE SET
+                        expectation_count=excluded.expectation_count,
+                        missing_proof_count=excluded.missing_proof_count,
+                        schema_hash=excluded.schema_hash,
+                        agent_id=excluded.agent_id,
+                        warden_status=excluded.warden_status,
+                        evidence_ids=excluded.evidence_ids,
+                        metadata=excluded.metadata,
+                        snapped_at=CURRENT_TIMESTAMP
+                ''', (
+                    snapshot_id, expectation_count, missing_proof_count, schema_hash,
+                    agent_id, warden_status,
+                    json.dumps(evidence_ids or []),
+                    json.dumps(metadata or {}),
+                ))
+            return True
+        except Exception as e:
+            print(f"Ledger Error (DeliverySnapshot): {e}")
+            return False
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def get_latest_snapshot(self) -> Optional[Dict[str, Any]]:
+        """Returns the most recent delivery snapshot."""
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute(
+                "SELECT snapshot_id, expectation_count, missing_proof_count, schema_hash, "
+                "agent_id, warden_status, evidence_ids, metadata, snapped_at "
+                "FROM delivery_snapshots ORDER BY snapped_at DESC, id DESC LIMIT 1"
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return {
+                "snapshot_id": row[0], "expectation_count": row[1],
+                "missing_proof_count": row[2], "schema_hash": row[3],
+                "agent_id": row[4], "warden_status": row[5],
+                "evidence_ids": json.loads(row[6] or "[]"),
+                "metadata": json.loads(row[7] or "{}"),
+                "snapped_at": row[8],
+            }
         finally:
             if self.db_path != ":memory:": conn.close()
 
