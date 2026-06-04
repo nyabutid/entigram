@@ -421,19 +421,19 @@ def main():
     )
     list_proposals_parser.add_argument("--json", action="store_true", dest="json_output", help="Output as JSON")
 
-    # learn command (Entigram_Learning operational path)
-    learn_parser = subparsers.add_parser("learn", help="Record and retrieve reusable learnings from deliveries")
+    # learn command (Entigram_Lesson operational path)
+    learn_parser = subparsers.add_parser("learn", help="Record and retrieve reusable lessons from deliveries")
     learn_subparsers = learn_parser.add_subparsers(dest="learn_command", help="Learn commands")
     learn_parser.add_argument("--dir", default=".", help="Target directory")
 
-    learn_record_parser = learn_subparsers.add_parser("record", help="Persist a new learning to the ledger")
+    learn_record_parser = learn_subparsers.add_parser("record", help="Persist a new lesson to the ledger")
     learn_record_parser.add_argument("--lesson", required=True, help="The lesson learned (plain language)")
     learn_record_parser.add_argument("--task", help="Source task or session context")
     learn_record_parser.add_argument("--rule", help="Reusable rule derived from the lesson")
     learn_record_parser.add_argument("--confidence", type=float, default=1.0, help="Confidence 0.0-1.0 (default 1.0)")
     learn_record_parser.add_argument("--by", help="Agent ID")
 
-    learn_list_parser = learn_subparsers.add_parser("list", help="List recorded learnings")
+    learn_list_parser = learn_subparsers.add_parser("list", help="List recorded lessons")
     learn_list_parser.add_argument("--status", default=None, help="Filter by lifecycle (Active, Archived)")
     learn_list_parser.add_argument("--json", action="store_true", dest="json_output", help="Output as JSON")
 
@@ -1273,32 +1273,32 @@ RELATIONSHIPS:
         from entigram.broker import EntigramBroker
         broker = EntigramBroker(args.dir)
         if args.learn_command == "record":
-            learning_id = broker.record_learning(
+            lesson_id = broker.record_lesson(
                 lesson=args.lesson,
                 source_task=getattr(args, "task", None),
                 reusable_rule=getattr(args, "rule", None),
                 confidence=getattr(args, "confidence", 1.0),
                 agent_id=getattr(args, "by", None),
             )
-            if learning_id:
-                print(f"✅ Learning #{learning_id} recorded.")
+            if lesson_id:
+                print(f"✅ Lesson #{lesson_id} recorded.")
                 if getattr(args, "rule", None):
                     print(f"   Rule: {args.rule}")
                 print("   View with: etg learn list")
             else:
-                print("❌ Failed to record learning.")
+                print("❌ Failed to record lesson.")
                 sys.exit(1)
         elif args.learn_command == "list":
-            learnings = broker.ledger.get_learnings(
+            lessons = broker.ledger.get_lessons(
                 lifecycle_status=getattr(args, "status", None)
             )
-            if not learnings:
-                print("No learnings recorded yet.")
+            if not lessons:
+                print("No lessons recorded yet.")
             elif getattr(args, "json_output", False):
-                print(json.dumps(learnings, indent=2))
+                print(json.dumps(lessons, indent=2))
             else:
-                print(f"Learnings ({len(learnings)} found):")
-                for l in learnings:
+                print(f"Lessons ({len(lessons)} found):")
+                for l in lessons:
                     print(f"  [{l['lifecycle_status']}] #{l['id']} {l['lesson'][:80]}")
                     if l.get("reusable_rule"):
                         print(f"    Rule: {l['reusable_rule']}")
