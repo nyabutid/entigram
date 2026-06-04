@@ -19,7 +19,7 @@ from entigram.injector import inject_entigram_manifest
 from entigram.schema_compiler import compile_schema_file, SchemaParser
 from entigram.schema_compiler.graph_builder import SchemaGraphBuilder
 from entigram.sqlite_ledger import LedgerManager
-from entigram.cli_runner.runner import launch_agent
+from entigram.cli_runner.runner import OLLAMA_LAUNCH_OPTIONS, launch_agent, list_ollama_models
 from entigram.project_history import get_project_history, add_project_to_history
 from entigram.ontology_compiler import OntologyCompiler
 from entigram.utils import find_project_root
@@ -354,6 +354,28 @@ with tabs[0]:
             engines = sorted(available_engines)
 
         cli_engine = st.selectbox("CLI Engine", engines, key="cli_engine")
+        ollama_launch_option = None
+        ollama_model = None
+
+        if cli_engine == "Ollama":
+            ollama_launch_option = st.selectbox(
+                "Ollama Launch Option",
+                list(OLLAMA_LAUNCH_OPTIONS.keys()),
+                key="ollama_launch_option",
+            )
+
+            ollama_models = list_ollama_models()
+            if ollama_models:
+                qwen3_models = [i for i, name in enumerate(ollama_models) if name == "qwen3" or name.startswith("qwen3:")]
+                default_model_index = qwen3_models[0] if qwen3_models else 0
+                ollama_model = st.selectbox(
+                    "Local Ollama Model",
+                    ollama_models,
+                    index=default_model_index,
+                    key="ollama_model",
+                )
+            else:
+                st.warning("No local Ollama models detected. Pull a model with `ollama pull <model>`.")
         
         if available_engines:
              st.caption("Available engines detected automatically.")
@@ -385,7 +407,13 @@ with tabs[0]:
                     f.write(hydration_vector)
                 
                 p = custom_prompt if custom_prompt else f"Initialize from {boot_file}. Silent boot. Ready."
-                success, msg = launch_agent(target_dir, cli_engine, initial_prompt=p)
+                success, msg = launch_agent(
+                    target_dir,
+                    cli_engine,
+                    initial_prompt=p,
+                    model=ollama_model if cli_engine == "Ollama" else None,
+                    ollama_launch_option=ollama_launch_option,
+                )
                 if success: st.success(msg)
                 else: st.error(msg)
         with c2:
@@ -397,7 +425,14 @@ with tabs[0]:
                     f.write(hydration_vector)
                 
                 p = custom_prompt if custom_prompt else f"Initialize from {boot_file}. Silent boot. Ready."
-                launch_agent(target_dir, engine=cli_engine, yolo=True, initial_prompt=p)
+                launch_agent(
+                    target_dir,
+                    engine=cli_engine,
+                    yolo=True,
+                    initial_prompt=p,
+                    model=ollama_model if cli_engine == "Ollama" else None,
+                    ollama_launch_option=ollama_launch_option,
+                )
         with c3:
             if st.button("Interview", icon=":material/mic:", width='stretch'): 
                 # ACTIVE HYDRATION: Force LLM state alignment via boot file
@@ -407,7 +442,13 @@ with tabs[0]:
                     f.write(hydration_vector)
                 
                 p = f"Initialize from {boot_file}. Silent boot. Ready."
-                success, msg = launch_agent(target_dir, cli_engine, initial_prompt=p)
+                success, msg = launch_agent(
+                    target_dir,
+                    cli_engine,
+                    initial_prompt=p,
+                    model=ollama_model if cli_engine == "Ollama" else None,
+                    ollama_launch_option=ollama_launch_option,
+                )
                 if success: st.success(msg)
                 else: st.error(msg)
 
@@ -457,7 +498,13 @@ with tabs[1]:
     with col1:
         if st.button("Discover Model", icon=":material/search:", width='stretch'):
             dp = "Scan files and identify core entities for schema.lds."
-            success, msg = launch_agent(target_dir, cli_engine, initial_prompt=dp)
+            success, msg = launch_agent(
+                target_dir,
+                cli_engine,
+                initial_prompt=dp,
+                model=ollama_model if cli_engine == "Ollama" else None,
+                ollama_launch_option=ollama_launch_option,
+            )
             if success: st.success(msg)
     with col2:
         if st.button("Build SQL", icon=":material/build:", width='stretch'):

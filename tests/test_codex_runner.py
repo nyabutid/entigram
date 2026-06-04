@@ -1,7 +1,8 @@
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
-from entigram.cli_runner.runner import launch_agent
+from entigram.cli_runner.runner import launch_agent, list_ollama_models
 
 
 class TestCodexRunner(unittest.TestCase):
@@ -30,6 +31,41 @@ class TestCodexRunner(unittest.TestCase):
         self.assertNotIn("^[[200~", args[2])
         self.assertNotIn("^[[201~", args[2])
         self.assertNotIn("/usr/bin/expect", args[2])
+
+    def test_ollama_uses_selected_launch_option_and_model(self):
+        with patch("platform.system", return_value="Darwin"):
+            with patch("subprocess.run") as run:
+                success, message = launch_agent(
+                    ".",
+                    "Ollama",
+                    model="llama3.2:latest",
+                    ollama_launch_option="Codex",
+                )
+
+        self.assertTrue(success)
+        self.assertEqual(message, "Launched and focused Terminal.")
+        run.assert_called_once()
+        args = run.call_args.args[0]
+        self.assertEqual(args[:2], ["osascript", "-e"])
+        self.assertIn("ollama launch codex --model llama3.2:latest", args[2])
+
+    def test_ollama_defaults_to_claude_and_qwen3(self):
+        with patch("platform.system", return_value="Darwin"):
+            with patch("subprocess.run") as run:
+                success, message = launch_agent(".", "Ollama")
+
+        self.assertTrue(success)
+        self.assertEqual(message, "Launched and focused Terminal.")
+        args = run.call_args.args[0]
+        self.assertIn("ollama launch claude --model qwen3", args[2])
+
+    def test_list_ollama_models_parses_local_models(self):
+        output = """NAME              ID              SIZE      MODIFIED
+qwen3:latest      abc123          5.2 GB    2 days ago
+llama3.2:latest   def456          2.0 GB    1 week ago
+"""
+        with patch("subprocess.run", return_value=SimpleNamespace(stdout=output)):
+            self.assertEqual(list_ollama_models(), ["qwen3:latest", "llama3.2:latest"])
 
 
 if __name__ == "__main__":
