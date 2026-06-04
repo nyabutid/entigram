@@ -6,7 +6,7 @@
 
 mk:Ontology a owl:Ontology ;
     rdfs:label "Entigram Generated Ontology" ;
-    mk:generatedAt "2026-06-04T12:32:49.681686" .
+    mk:generatedAt "2026-06-04T14:09:49.904734" .
 
 mk:Entigram_Project a owl:Class ;
     rdfs:label "Entigram_Project" .
@@ -82,6 +82,15 @@ mk:Salesforce_Integration a owl:Class ;
 
 mk:Inventory_Forecast a owl:Class ;
     rdfs:label "Inventory_Forecast" .
+
+mk:Entigram_Delivery_Snapshot a owl:Class ;
+    rdfs:label "Entigram_Delivery_Snapshot" .
+
+mk:Entigram_Artifact a owl:Class ;
+    rdfs:label "Entigram_Artifact" .
+
+mk:Entigram_Delivery_Drift a owl:Class ;
+    rdfs:label "Entigram_Delivery_Drift" .
 
 mk:Warehouse a owl:Class ;
     rdfs:label "Warehouse" .
@@ -199,6 +208,11 @@ mk:Entigram_Agent_default_proof_policy a owl:DatatypeProperty ;
     rdfs:domain mk:Entigram_Agent ;
     rdfs:range xsd:string ;
     rdfs:label "default_proof_policy" .
+
+mk:Entigram_Agent_proof_capabilities a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "proof_capabilities" .
 
 mk:Entigram_Agent_package a owl:DatatypeProperty ;
     rdfs:domain mk:Entigram_Agent ;
@@ -885,6 +899,141 @@ mk:Inventory_Forecast_confidence_interval a owl:DatatypeProperty ;
     rdfs:range xsd:string ;
     rdfs:label "confidence_interval" .
 
+mk:Entigram_Delivery_Snapshot_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Snapshot ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Delivery_Snapshot_snapshot_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Snapshot ;
+    rdfs:range xsd:string ;
+    rdfs:label "snapshot_id" .
+
+mk:Entigram_Delivery_Snapshot_expectation_count a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Snapshot ;
+    rdfs:range xsd:integer ;
+    rdfs:label "expectation_count" .
+
+mk:Entigram_Delivery_Snapshot_missing_proof_count a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Snapshot ;
+    rdfs:range xsd:integer ;
+    rdfs:label "missing_proof_count" .
+
+mk:Entigram_Delivery_Snapshot_schema_hash a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Snapshot ;
+    rdfs:range xsd:string ;
+    rdfs:label "schema_hash" .
+
+mk:Entigram_Delivery_Snapshot_agent_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Snapshot ;
+    rdfs:range xsd:string ;
+    rdfs:label "agent_id" .
+
+mk:Entigram_Delivery_Snapshot_warden_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Snapshot ;
+    rdfs:range xsd:string ;
+    rdfs:label "warden_status" .
+
+mk:Entigram_Delivery_Snapshot_evidence_ids a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Snapshot ;
+    rdfs:range xsd:string ;
+    rdfs:label "evidence_ids" .
+
+mk:Entigram_Delivery_Snapshot_artifact_ids a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Snapshot ;
+    rdfs:range xsd:string ;
+    rdfs:label "artifact_ids" .
+
+mk:Entigram_Delivery_Snapshot_metadata a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Snapshot ;
+    rdfs:range xsd:string ;
+    rdfs:label "metadata" .
+
+mk:Entigram_Delivery_Snapshot_snapped_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Snapshot ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "snapped_at" .
+
+mk:Entigram_Artifact_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Artifact ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Artifact_path a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Artifact ;
+    rdfs:range xsd:string ;
+    rdfs:label "path" .
+
+mk:Entigram_Artifact_artifact_role a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Artifact ;
+    rdfs:range xsd:string ;
+    rdfs:label "artifact_role" .
+
+mk:Entigram_Artifact_sha256 a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Artifact ;
+    rdfs:range xsd:string ;
+    rdfs:label "sha256" .
+
+mk:Entigram_Artifact_size_bytes a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Artifact ;
+    rdfs:range xsd:integer ;
+    rdfs:label "size_bytes" .
+
+mk:Entigram_Artifact_content_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Artifact ;
+    rdfs:range xsd:string ;
+    rdfs:label "content_type" .
+
+mk:Entigram_Artifact_source_ref a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Artifact ;
+    rdfs:range xsd:string ;
+    rdfs:label "source_ref" .
+
+mk:Entigram_Artifact_captured_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Artifact ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "captured_at" .
+
+mk:Entigram_Delivery_Drift_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Drift ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Delivery_Drift_snapshot_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Drift ;
+    rdfs:range xsd:string ;
+    rdfs:label "snapshot_id" .
+
+mk:Entigram_Delivery_Drift_artifact_path a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Drift ;
+    rdfs:range xsd:string ;
+    rdfs:label "artifact_path" .
+
+mk:Entigram_Delivery_Drift_drift_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Drift ;
+    rdfs:range xsd:string ;
+    rdfs:label "drift_status" .
+
+mk:Entigram_Delivery_Drift_previous_sha256 a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Drift ;
+    rdfs:range xsd:string ;
+    rdfs:label "previous_sha256" .
+
+mk:Entigram_Delivery_Drift_current_sha256 a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Drift ;
+    rdfs:range xsd:string ;
+    rdfs:label "current_sha256" .
+
+mk:Entigram_Delivery_Drift_recommendation a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Drift ;
+    rdfs:range xsd:string ;
+    rdfs:label "recommendation" .
+
+mk:Entigram_Delivery_Drift_observed_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Delivery_Drift ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "observed_at" .
+
 mk:Warehouse_id a owl:DatatypeProperty ;
     rdfs:domain mk:Warehouse ;
     rdfs:range xsd:string ;
@@ -1419,6 +1568,90 @@ mk:Inventory_Forecast rdfs:subClassOf [
     ] , [
         a owl:Restriction ;
         owl:onProperty mk:relates_Inventory_Forecast_to_Salesforce_Integration ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Entigram_Delivery_Snapshot a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Delivery_Snapshot ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Delivery_Snapshot_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Delivery_Snapshot ;
+    rdfs:domain mk:Entigram_Delivery_Snapshot ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Delivery_Snapshot rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Delivery_Snapshot_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Delivery_Snapshot_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Entigram_Artifact a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Artifact ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Artifact_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Artifact ;
+    rdfs:domain mk:Entigram_Artifact ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Artifact rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Artifact_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Artifact_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Delivery_Snapshot_to_Entigram_Artifact a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Delivery_Snapshot ;
+    rdfs:range mk:Entigram_Artifact ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Artifact_to_Entigram_Delivery_Snapshot a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Delivery_Snapshot_to_Entigram_Artifact ;
+    rdfs:domain mk:Entigram_Artifact ;
+    rdfs:range mk:Entigram_Delivery_Snapshot ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Artifact rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Artifact_to_Entigram_Delivery_Snapshot ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Artifact_to_Entigram_Delivery_Snapshot ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Delivery_Snapshot_to_Entigram_Delivery_Drift a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Delivery_Snapshot ;
+    rdfs:range mk:Entigram_Delivery_Drift ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Delivery_Drift_to_Entigram_Delivery_Snapshot a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Delivery_Snapshot_to_Entigram_Delivery_Drift ;
+    rdfs:domain mk:Entigram_Delivery_Drift ;
+    rdfs:range mk:Entigram_Delivery_Snapshot ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Delivery_Drift rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Delivery_Drift_to_Entigram_Delivery_Snapshot ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Delivery_Drift_to_Entigram_Delivery_Snapshot ;
         owl:minCardinality 1
     ] .
 

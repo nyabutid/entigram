@@ -24,6 +24,17 @@ class LedgerManager:
             return self._memory_conn
         return sqlite3.connect(self.db_path)
 
+    def close(self):
+        if self._memory_conn is not None:
+            self._memory_conn.close()
+            self._memory_conn = None
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
     def _ensure_db(self):
         """Creates the human_resolutions and conflicts tables if they don't exist."""
         if self.db_path != ":memory:":
@@ -158,6 +169,26 @@ class LedgerManager:
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+            self._ensure_columns(conn, "improvement_proposals", {
+                "lifecycle_status": "TEXT DEFAULT 'Proposed'",
+                "created_by": "TEXT",
+            })
+            # Table for reusable learnings (Entigram_Learning operational path)
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS learnings (
+                    id INTEGER PRIMARY KEY,
+                    source_task TEXT,
+                    lesson TEXT NOT NULL,
+                    reusable_rule TEXT,
+                    confidence REAL DEFAULT 1.0,
+                    lifecycle_status TEXT DEFAULT 'Active',
+                    agent_id TEXT,
+                    observed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            self._ensure_columns(conn, "learnings", {
+                "agent_id": "TEXT",
+            })
             # Table for delivery snapshots (frozen boot state at commission pass)
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS delivery_snapshots (
@@ -169,8 +200,26 @@ class LedgerManager:
                     agent_id TEXT,
                     warden_status TEXT,
                     evidence_ids TEXT,
+                    artifact_ids TEXT,
                     metadata TEXT,
                     snapped_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            self._ensure_columns(conn, "delivery_snapshots", {
+                "artifact_ids": "TEXT",
+            })
+            # Table for source-control-neutral local artifacts captured at delivery time
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS delivery_artifacts (
+                    id INTEGER PRIMARY KEY,
+                    path TEXT NOT NULL,
+                    artifact_role TEXT,
+                    sha256 TEXT,
+                    size_bytes INTEGER,
+                    content_type TEXT,
+                    source_ref TEXT,
+                    captured_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(path, artifact_role, sha256)
                 )
             ''')
             conn.execute('''
@@ -180,6 +229,10 @@ class LedgerManager:
             conn.execute('''
                 CREATE INDEX IF NOT EXISTS idx_improvement_proposals_status
                 ON improvement_proposals(lifecycle_status, created_at)
+            ''')
+            conn.execute('''
+                CREATE INDEX IF NOT EXISTS idx_delivery_artifacts_hash
+                ON delivery_artifacts(sha256, artifact_role)
             ''')
         if self.db_path != ":memory:":
             conn.close()
@@ -643,6 +696,63 @@ class LedgerManager:
         finally:
             if self.db_path != ":memory:": conn.close()
 
+    def record_learning(
+        self,
+        lesson: str,
+        *,
+        source_task: Optional[str] = None,
+        reusable_rule: Optional[str] = None,
+        confidence: float = 1.0,
+        lifecycle_status: str = "Active",
+        agent_id: Optional[str] = None,
+    ) -> Optional[int]:
+        """Persists a reusable learning / lesson to the ledger (Entigram_Learning operational path)."""
+        conn = self._get_connection()
+        try:
+            with conn:
+                cursor = conn.execute(
+                    "INSERT INTO learnings "
+                    "(source_task, lesson, reusable_rule, confidence, lifecycle_status, agent_id) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (source_task, lesson, reusable_rule, confidence, lifecycle_status, agent_id),
+                )
+                return cursor.lastrowid
+        except Exception as e:
+            print(f"Ledger Error (Learning): {e}")
+            return None
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def get_learnings(
+        self,
+        lifecycle_status: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Retrieves recorded learnings."""
+        conn = self._get_connection()
+        try:
+            conditions, params = [], []
+            if lifecycle_status:
+                conditions.append("lifecycle_status = ?")
+                params.append(lifecycle_status)
+            where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+            cursor = conn.execute(
+                f"SELECT id, source_task, lesson, reusable_rule, confidence, "
+                f"lifecycle_status, agent_id, observed_at "
+                f"FROM learnings {where} ORDER BY observed_at DESC LIMIT ?",
+                params + [limit],
+            )
+            return [
+                {
+                    "id": r[0], "source_task": r[1], "lesson": r[2],
+                    "reusable_rule": r[3], "confidence": r[4],
+                    "lifecycle_status": r[5], "agent_id": r[6], "observed_at": r[7],
+                }
+                for r in cursor.fetchall()
+            ]
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
     def record_delivery_snapshot(
         self,
         snapshot_id: str,
@@ -653,6 +763,7 @@ class LedgerManager:
         agent_id: Optional[str] = None,
         warden_status: Optional[str] = None,
         evidence_ids: Optional[List[int]] = None,
+        artifact_ids: Optional[List[int]] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Persists a frozen delivery snapshot for drift detection."""
@@ -662,8 +773,8 @@ class LedgerManager:
                 conn.execute('''
                     INSERT INTO delivery_snapshots
                         (snapshot_id, expectation_count, missing_proof_count, schema_hash,
-                         agent_id, warden_status, evidence_ids, metadata)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                         agent_id, warden_status, evidence_ids, artifact_ids, metadata)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(snapshot_id) DO UPDATE SET
                         expectation_count=excluded.expectation_count,
                         missing_proof_count=excluded.missing_proof_count,
@@ -671,12 +782,14 @@ class LedgerManager:
                         agent_id=excluded.agent_id,
                         warden_status=excluded.warden_status,
                         evidence_ids=excluded.evidence_ids,
+                        artifact_ids=excluded.artifact_ids,
                         metadata=excluded.metadata,
                         snapped_at=CURRENT_TIMESTAMP
                 ''', (
                     snapshot_id, expectation_count, missing_proof_count, schema_hash,
                     agent_id, warden_status,
                     json.dumps(evidence_ids or []),
+                    json.dumps(artifact_ids or []),
                     json.dumps(metadata or {}),
                 ))
             return True
@@ -692,7 +805,7 @@ class LedgerManager:
         try:
             cursor = conn.execute(
                 "SELECT snapshot_id, expectation_count, missing_proof_count, schema_hash, "
-                "agent_id, warden_status, evidence_ids, metadata, snapped_at "
+                "agent_id, warden_status, evidence_ids, artifact_ids, metadata, snapped_at "
                 "FROM delivery_snapshots ORDER BY snapped_at DESC, id DESC LIMIT 1"
             )
             row = cursor.fetchone()
@@ -703,9 +816,104 @@ class LedgerManager:
                 "missing_proof_count": row[2], "schema_hash": row[3],
                 "agent_id": row[4], "warden_status": row[5],
                 "evidence_ids": json.loads(row[6] or "[]"),
-                "metadata": json.loads(row[7] or "{}"),
-                "snapped_at": row[8],
+                "artifact_ids": json.loads(row[7] or "[]"),
+                "metadata": json.loads(row[8] or "{}"),
+                "snapped_at": row[9],
             }
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def record_delivery_artifact(
+        self,
+        path: str,
+        *,
+        artifact_role: Optional[str] = None,
+        sha256: Optional[str] = None,
+        size_bytes: Optional[int] = None,
+        content_type: Optional[str] = None,
+        source_ref: Optional[str] = None,
+    ) -> Optional[int]:
+        """Persists a local artifact reference captured for a delivery."""
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute('''
+                    INSERT INTO delivery_artifacts
+                        (path, artifact_role, sha256, size_bytes, content_type, source_ref)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(path, artifact_role, sha256) DO UPDATE SET
+                        size_bytes=excluded.size_bytes,
+                        content_type=excluded.content_type,
+                        source_ref=excluded.source_ref,
+                        captured_at=CURRENT_TIMESTAMP
+                ''', (path, artifact_role, sha256, size_bytes, content_type, source_ref))
+                cursor = conn.execute(
+                    "SELECT id FROM delivery_artifacts "
+                    "WHERE path = ? AND COALESCE(artifact_role, '') = COALESCE(?, '') "
+                    "AND COALESCE(sha256, '') = COALESCE(?, '') "
+                    "ORDER BY id DESC LIMIT 1",
+                    (path, artifact_role, sha256),
+                )
+                row = cursor.fetchone()
+                return row[0] if row else None
+        except Exception as e:
+            print(f"Ledger Error (DeliveryArtifact): {e}")
+            return None
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def get_delivery_artifacts(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Returns recently captured delivery artifacts."""
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute(
+                "SELECT id, path, artifact_role, sha256, size_bytes, content_type, "
+                "source_ref, captured_at FROM delivery_artifacts "
+                "ORDER BY captured_at DESC, id DESC LIMIT ?",
+                (limit,),
+            )
+            return [
+                {
+                    "id": r[0],
+                    "path": r[1],
+                    "artifact_role": r[2],
+                    "sha256": r[3],
+                    "size_bytes": r[4],
+                    "content_type": r[5],
+                    "source_ref": r[6],
+                    "captured_at": r[7],
+                }
+                for r in cursor.fetchall()
+            ]
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def get_delivery_artifacts_by_ids(self, artifact_ids: List[int]) -> List[Dict[str, Any]]:
+        """Returns delivery artifacts by snapshot-stored row IDs."""
+        if not artifact_ids:
+            return []
+        conn = self._get_connection()
+        try:
+            placeholders = ",".join("?" for _ in artifact_ids)
+            cursor = conn.execute(
+                "SELECT id, path, artifact_role, sha256, size_bytes, content_type, "
+                f"source_ref, captured_at FROM delivery_artifacts WHERE id IN ({placeholders})",
+                artifact_ids,
+            )
+            rows = {
+                r[0]: {
+                    "id": r[0],
+                    "path": r[1],
+                    "artifact_role": r[2],
+                    "sha256": r[3],
+                    "size_bytes": r[4],
+                    "content_type": r[5],
+                    "source_ref": r[6],
+                    "captured_at": r[7],
+                }
+                for r in cursor.fetchall()
+            }
+            return [rows[artifact_id] for artifact_id in artifact_ids if artifact_id in rows]
         finally:
             if self.db_path != ":memory:": conn.close()
 
