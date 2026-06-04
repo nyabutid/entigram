@@ -81,12 +81,16 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
         schema_text, _, _ = _load_project_model()
 
         checklist = Commissioner(schema_text).build_checklist(
-            proofs=["python -m unittest tests.test_entigram_self_improvement_model passed"]
+            proofs=[
+                "python -m unittest tests.test_entigram_self_improvement_model passed",
+                "python -m unittest tests.test_commissioner passed",
+            ]
         )
 
         names = {item["name"] for item in checklist["items"]}
         self.assertIn("Entigram Self-Improvement Loop", names)
         self.assertIn("Agent Delivery Proof", names)
+        self.assertIn("Out-of-the-box Expectation Guard", names)
         self.assertTrue(checklist["valid"])
 
 

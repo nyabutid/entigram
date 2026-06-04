@@ -199,6 +199,72 @@ class TestCommissioner(unittest.TestCase):
         self.assertTrue(delivered, deliver_output)
         self.assertIn("Handoff gate: PASSED", deliver_output)
 
+    def test_expectation_guard_runs_missing_validation_check_and_records_evidence(self):
+        command = f'{sys.executable} -c "import sys; sys.exit(0)"'
+        Path(self.test_dir, "schema.lds").write_text(command_expectation_schema(command))
+
+        result = EntigramBroker(self.test_dir).expectation_guard(agent_id="GuardAgent")
+
+        self.assertTrue(result["valid"], result)
+        self.assertEqual(result["guard"]["handoff_verdict"], "PASSED")
+        self.assertEqual(len(result["guard"]["verification_results"]), 1)
+        self.assertTrue(result["guard"]["verification_results"][0]["passed"])
+
+        ledger = LedgerManager(str(Path(self.test_dir, ".etg", "entigram_state.db")))
+        try:
+            evidence = ledger.get_delivery_evidence(
+                expectation_name="Runnable Proof",
+                passed_only=True,
+            )
+        finally:
+            ledger.close()
+
+        self.assertTrue(any(row["evidence_type"] == "test_run" for row in evidence))
+        self.assertTrue(any(row["evidence_type"] == "commission_pass" for row in evidence))
+
+    def test_expectation_guard_fails_when_validation_check_fails(self):
+        command = f'{sys.executable} -c "import sys; sys.exit(3)"'
+        Path(self.test_dir, "schema.lds").write_text(command_expectation_schema(command))
+
+        result = EntigramBroker(self.test_dir).expectation_guard(agent_id="GuardAgent")
+
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["missing_proof_count"], 1)
+        self.assertEqual(result["guard"]["handoff_verdict"], "FAILED")
+        self.assertFalse(result["guard"]["verification_results"][0]["passed"])
+
+    def test_expectation_guard_uses_current_interpreter_for_python_checks(self):
+        command = 'python -c "import sys; sys.exit(0)"'
+        Path(self.test_dir, "schema.lds").write_text(command_expectation_schema(command))
+
+        result = EntigramBroker(self.test_dir).expectation_guard(agent_id="GuardAgent")
+
+        self.assertTrue(result["valid"], result)
+        self.assertEqual(result["guard"]["handoff_verdict"], "PASSED")
+
+    def test_expectation_guard_runs_python_file_validation_check(self):
+        Path(self.test_dir, "guard_check.py").write_text("import sys\nsys.exit(0)\n")
+        Path(self.test_dir, "schema.lds").write_text(
+            command_expectation_schema("guard_check.py")
+        )
+
+        result = EntigramBroker(self.test_dir).expectation_guard(agent_id="GuardAgent")
+
+        self.assertTrue(result["valid"], result)
+        self.assertEqual(result["guard"]["handoff_verdict"], "PASSED")
+
+    def test_cli_guard_runs_missing_validation_check(self):
+        command = f'{sys.executable} -c "import sys; sys.exit(0)"'
+        Path(self.test_dir, "schema.lds").write_text(command_expectation_schema(command))
+
+        guarded, guard_output = self._run_cli(
+            ["broker", "--dir", self.test_dir, "guard"]
+        )
+
+        self.assertTrue(guarded, guard_output)
+        self.assertIn("Expectation guard: PASSED", guard_output)
+        self.assertIn("PASS Runnable Proof", guard_output)
+
     def test_cli_deliver_unknown_expectation_fails(self):
         delivered, deliver_output = self._run_cli(
             [
