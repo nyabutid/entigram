@@ -252,8 +252,31 @@ ATTRIBUTES:
   - agent_id (String)
   - warden_status (String) # intact, tampered
   - evidence_ids (JSON) # list of delivery_evidence row IDs covered
+  - artifact_ids (JSON) # list of Entigram_Artifact ledger row IDs covered
   - metadata (JSON)
   - snapped_at (DateTime)
+
+ENTITY: Entigram_Artifact
+ATTRIBUTES:
+  - .id (UUID)
+  - path (String, MUST)
+  - artifact_role (String) # schema_contract, ontology_contract, delivery_artifact, evidence_artifact, local_artifact, external_reference
+  - sha256 (String)
+  - size_bytes (Integer)
+  - content_type (String)
+  - source_ref (String) # optional URI, local path, or external system reference
+  - captured_at (DateTime)
+
+ENTITY: Entigram_Delivery_Drift
+ATTRIBUTES:
+  - .id (UUID)
+  - snapshot_id (String, MUST)
+  - artifact_path (String)
+  - drift_status (String) # current, changed, missing, unanchored, missing_record
+  - previous_sha256 (String)
+  - current_sha256 (String)
+  - recommendation (String)
+  - observed_at (DateTime)
 
 RELATIONSHIPS:
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Package
@@ -279,6 +302,9 @@ RELATIONSHIPS:
 - Partner_Organization (1) [MUST] --- [MAY] (MANY) Entigram_Alignment
 - Salesforce_Integration (1) [MUST] --- [MAY] (MANY) Inventory_Forecast
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Delivery_Snapshot
+- Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Artifact
+- Entigram_Delivery_Snapshot (1) [MUST] --- [MAY] (MANY) Entigram_Artifact
+- Entigram_Delivery_Snapshot (1) [MUST] --- [MAY] (MANY) Entigram_Delivery_Drift
 
 /* Phase 3 Macro Chain (Federated) */
 - Idea (1) --- (1) Partner_Organization [ALIGN: Idea.id == Partner_Organization.id]
@@ -335,3 +361,5 @@ EXPECTATION: Agent Delivery Proof {
 /* Updated: 2026-05-20 Headless Antigravity engine execution via stdin piping support added */
 /* Updated: 2026-06-04 Entigram self-improvement loop modeled with expectations, evidence, evaluations, proposals, and learnings */
 /* Updated: 2026-06-04 Commissioner companion features: Entigram_Delivery_Snapshot, Blocked lifecycle, proof_capabilities, improvement proposals */
+/* Updated: 2026-06-04 Artifact-centered delivery snapshots for source-control-neutral workspaces */
+/* Updated: 2026-06-04 Delivery drift status modeled as a read-only recommission signal */

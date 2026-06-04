@@ -11,6 +11,7 @@ from entigram.broker import EntigramBroker
 from entigram.cli_runner.etg_cli import get_hydration_vector, main
 from entigram.governance.commissioner import Commissioner
 from entigram.injector import inject_entigram_manifest
+from entigram.sqlite_ledger.manager import LedgerManager
 
 
 EXPECTATION_SCHEMA = """
@@ -24,6 +25,21 @@ EXPECTATION: Stable Jump Arc {
   validation_check: tests/test_gameplay.py::test_jump_arc
   proof: tests/test_gameplay.py::test_jump_arc
 }
+"""
+
+
+def command_expectation_schema(command: str) -> str:
+    return f"""
+ENTITY: Player {{
+  id UUID PK
+}}
+
+EXPECTATION: Runnable Proof {{
+  developer_expectation: Runnable checks should become durable delivery proof.
+  implementation_rule: Resolve records successful proof that deliver can reuse.
+  validation_check: {command}
+  proof: {command}
+}}
 """
 
 
@@ -97,6 +113,108 @@ class TestCommissioner(unittest.TestCase):
         self.assertIn('"commissioner"', output)
         self.assertIn("Stable Jump Arc", output)
         self.assertIn("tests/test_gameplay.py::test_jump_arc", output)
+        self.assertIn('"delivery_evidence"', output)
+        self.assertIn('"delivery_artifacts"', output)
+        self.assertIn('"improvement_proposals"', output)
+        self.assertIn('"latest_delivery_snapshot"', output)
+        self.assertIn('"current_delivery_status"', output)
+
+    def test_cli_deliver_records_explicit_artifact_anchor(self):
+        artifact_path = Path(self.test_dir, "local-result.txt")
+        artifact_path.write_text("delivery output")
+
+        delivered, deliver_output = self._run_cli(
+            [
+                "broker",
+                "--dir",
+                self.test_dir,
+                "deliver",
+                "--proof",
+                "tests/test_gameplay.py::test_jump_arc",
+                "--artifact",
+                "local-result.txt",
+            ]
+        )
+
+        self.assertTrue(delivered, deliver_output)
+        ledger = LedgerManager(str(Path(self.test_dir, ".etg", "entigram_state.db")))
+        try:
+            artifacts = ledger.get_delivery_artifacts()
+            snapshot = ledger.get_latest_snapshot()
+        finally:
+            ledger.close()
+
+        explicit = [
+            artifact for artifact in artifacts
+            if artifact["path"] == "local-result.txt"
+        ]
+        self.assertTrue(explicit)
+        self.assertEqual(explicit[0]["artifact_role"], "delivery_artifact")
+        self.assertIn(explicit[0]["id"], snapshot["artifact_ids"])
+
+    def test_cli_status_reports_artifact_drift_after_delivery(self):
+        artifact_path = Path(self.test_dir, "local-result.txt")
+        artifact_path.write_text("delivery output")
+
+        delivered, deliver_output = self._run_cli(
+            [
+                "broker",
+                "--dir",
+                self.test_dir,
+                "deliver",
+                "--proof",
+                "tests/test_gameplay.py::test_jump_arc",
+                "--artifact",
+                "local-result.txt",
+            ]
+        )
+        current, current_output = self._run_cli(
+            ["broker", "--dir", self.test_dir, "status"]
+        )
+        artifact_path.write_text("changed output")
+        drifted, drifted_output = self._run_cli(
+            ["broker", "--dir", self.test_dir, "status"]
+        )
+
+        self.assertTrue(delivered, deliver_output)
+        self.assertTrue(current, current_output)
+        self.assertIn("Delivery status: current", current_output)
+        self.assertFalse(drifted)
+        self.assertIn("recommission required", drifted_output)
+        self.assertIn("changed: local-result.txt", drifted_output)
+
+    def test_cli_resolve_evidence_allows_deliver_without_repeating_proof(self):
+        command = f'{sys.executable} -c "import sys; sys.exit(0)"'
+        Path(self.test_dir, "schema.lds").write_text(command_expectation_schema(command))
+
+        resolved, resolve_output = self._run_cli(
+            ["broker", "--dir", self.test_dir, "resolve", "--run-missing-proofs"]
+        )
+        delivered, deliver_output = self._run_cli(
+            ["broker", "--dir", self.test_dir, "deliver"]
+        )
+
+        self.assertTrue(resolved, resolve_output)
+        self.assertIn("All missing proofs resolved", resolve_output)
+        self.assertTrue(delivered, deliver_output)
+        self.assertIn("Handoff gate: PASSED", deliver_output)
+
+    def test_cli_deliver_unknown_expectation_fails(self):
+        delivered, deliver_output = self._run_cli(
+            [
+                "broker",
+                "--dir",
+                self.test_dir,
+                "deliver",
+                "--expectation",
+                "No Such Expectation",
+                "--proof",
+                "tests/test_gameplay.py::test_jump_arc",
+            ]
+        )
+
+        self.assertFalse(delivered)
+        self.assertIn("Unknown expectation", deliver_output)
 
     def _run_cli(self, args):
         captured_output = StringIO()

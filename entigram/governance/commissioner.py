@@ -116,19 +116,47 @@ class Commissioner:
         proofs: List[str] = None,
         blocked_checks: List[str] = None,
         agent_id: Optional[str] = None,
+        expectation_name: Optional[str] = None,
+        persist_evidence: bool = True,
     ) -> Dict[str, Any]:
         proofs = proofs or []
         blocked_checks = blocked_checks or []
-        items = [
-            exp.to_checklist_item(proofs, blocked_checks)
-            for exp in self.expectations
-        ]
+        expectations = self.expectations
+        if expectation_name:
+            expectations = [
+                exp for exp in expectations
+                if exp.name.lower() == expectation_name.lower()
+            ]
+            if not expectations:
+                return {
+                    "valid": False,
+                    "expectation_count": 0,
+                    "items": [],
+                    "missing_proof_count": 0,
+                    "blocked_count": 0,
+                    "evidence_ids": [],
+                    "error": f"Unknown expectation: {expectation_name}",
+                }
+
+        items = []
+        for exp in expectations:
+            ledger_evidence = self._passed_evidence_for(exp.name)
+            ledger_proofs = self._proof_text_from_evidence(ledger_evidence)
+            item = exp.to_checklist_item(proofs + ledger_proofs, blocked_checks)
+            item["evidence_ids"] = [row["id"] for row in ledger_evidence]
+            items.append(item)
+
         needs_proof = [
             item for item in items
             if item["status"] not in (STATUS_PASSED, STATUS_BLOCKED)
         ]
         blocked = [item for item in items if item["status"] == STATUS_BLOCKED]
         passed = [item for item in items if item["status"] == STATUS_PASSED]
+        evidence_ids = sorted({
+            evidence_id
+            for item in passed
+            for evidence_id in item.get("evidence_ids", [])
+        })
 
         checklist = {
             "valid": not needs_proof and not blocked,
@@ -136,12 +164,13 @@ class Commissioner:
             "items": items,
             "missing_proof_count": len(needs_proof),
             "blocked_count": len(blocked),
+            "evidence_ids": evidence_ids,
         }
 
         # Persist evidence when all expectations pass
-        if checklist["valid"] and self.ledger and passed:
+        if persist_evidence and checklist["valid"] and self.ledger and passed:
             for item in passed:
-                self.ledger.record_delivery_evidence(
+                evidence_id = self.ledger.record_delivery_evidence(
                     evidence_type="commission_pass",
                     artifact_ref="commissioner_checklist",
                     expectation_name=item["name"],
@@ -150,10 +179,15 @@ class Commissioner:
                     passed=True,
                     agent_id=agent_id,
                 )
+                if evidence_id:
+                    item.setdefault("evidence_ids", []).append(evidence_id)
+                    checklist["evidence_ids"].append(evidence_id)
 
         return checklist
 
     def format_checklist(self, checklist: Dict[str, Any]) -> str:
+        if checklist.get("error"):
+            return f"Commissioner: {checklist['error']}"
         if checklist["expectation_count"] == 0:
             return "Commissioner: no modeled expectations found."
 
@@ -183,7 +217,11 @@ class Commissioner:
                 lines.append(f"  Handoff gate: {item['handoff_question']}")
 
         blocked_count = checklist.get("blocked_count", 0)
-        if checklist["valid"]:
+        artifact_errors = checklist.get("artifact_errors") or []
+        if artifact_errors:
+            lines.extend(f"Artifact anchor error: {error}" for error in artifact_errors)
+            lines.append("Commissioner: delivery artifacts must be readable before handoff.")
+        elif checklist["valid"]:
             lines.append("Commissioner: all modeled expectations have proof.")
         elif blocked_count:
             lines.append(
@@ -198,6 +236,30 @@ class Commissioner:
 
     def to_json(self, checklist: Dict[str, Any]) -> str:
         return json.dumps(checklist, indent=2)
+
+    def _passed_evidence_for(self, expectation_name: str) -> List[Dict[str, Any]]:
+        if not self.ledger:
+            return []
+        return self.ledger.get_delivery_evidence(
+            expectation_name=expectation_name,
+            passed_only=True,
+        )
+
+    def _proof_text_from_evidence(self, evidence_rows: List[Dict[str, Any]]) -> List[str]:
+        proof_texts = []
+        for row in evidence_rows:
+            proof_texts.append(
+                "\n".join(
+                    str(part)
+                    for part in [
+                        row.get("artifact_ref"),
+                        row.get("command"),
+                        row.get("result_summary"),
+                    ]
+                    if part
+                )
+            )
+        return proof_texts
 
     def _parse_expectations(self, text: str) -> List[DeveloperExpectation]:
         line_text = re.sub(self.EXPECTATION_BLOCK_PATTERN, "", text, flags=re.DOTALL | re.IGNORECASE)
@@ -255,7 +317,13 @@ class Commissioner:
                 continue
             canonical = self.FIELD_ALIASES.get(field_match.group(1).lower())
             if canonical:
-                fields[canonical] = field_match.group(2).strip().strip('"')
+                value = field_match.group(2).strip()
+                if (
+                    (value.startswith('"') and value.endswith('"'))
+                    or (value.startswith("'") and value.endswith("'"))
+                ):
+                    value = value[1:-1]
+                fields[canonical] = value
         return fields
 
     def _build_expectation(self, name: Optional[str], fields: Dict[str, str]) -> Optional[DeveloperExpectation]:

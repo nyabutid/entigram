@@ -25,6 +25,8 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
             "Entigram_Improvement_Proposal",
             "Entigram_Learning",
             "Entigram_Delivery_Snapshot",
+            "Entigram_Artifact",
+            "Entigram_Delivery_Drift",
         }
         self.assertTrue(expected_entities.issubset(entities.keys()))
 
@@ -37,7 +39,13 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
         self.assertTrue({"expected_benefit", "rollback_plan"}.issubset(proposal_attrs))
 
         snapshot_attrs = {attr["name"] for attr in entities["Entigram_Delivery_Snapshot"].attributes}
-        self.assertTrue({"snapshot_id", "schema_hash", "warden_status"}.issubset(snapshot_attrs))
+        self.assertTrue({"snapshot_id", "schema_hash", "warden_status", "artifact_ids"}.issubset(snapshot_attrs))
+
+        artifact_attrs = {attr["name"] for attr in entities["Entigram_Artifact"].attributes}
+        self.assertTrue({"path", "artifact_role", "sha256", "size_bytes"}.issubset(artifact_attrs))
+
+        drift_attrs = {attr["name"] for attr in entities["Entigram_Delivery_Drift"].attributes}
+        self.assertTrue({"snapshot_id", "artifact_path", "drift_status"}.issubset(drift_attrs))
 
         relationship_pairs = {(rel.entity_a, rel.entity_b) for rel in relationships}
         self.assertIn(("Entigram_Project", "Entigram_Expectation"), relationship_pairs)
@@ -46,6 +54,9 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
         self.assertIn(("Entigram_Expectation", "Entigram_Improvement_Proposal"), relationship_pairs)
         self.assertIn(("Entigram_Project", "Entigram_Learning"), relationship_pairs)
         self.assertIn(("Entigram_Project", "Entigram_Delivery_Snapshot"), relationship_pairs)
+        self.assertIn(("Entigram_Project", "Entigram_Artifact"), relationship_pairs)
+        self.assertIn(("Entigram_Delivery_Snapshot", "Entigram_Artifact"), relationship_pairs)
+        self.assertIn(("Entigram_Delivery_Snapshot", "Entigram_Delivery_Drift"), relationship_pairs)
 
     def test_self_improvement_model_compiles_to_sql_and_ttl(self):
         _, entities, relationships = _load_project_model()
@@ -57,6 +68,12 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
         ttl = OntologyCompiler(entities, relationships).compile()
         self.assertIn("mk:Entigram_Expectation a owl:Class", ttl)
         self.assertIn("mk:Entigram_Delivery_Evidence a owl:Class", ttl)
+        self.assertIn("mk:Entigram_Delivery_Snapshot a owl:Class", ttl)
+        self.assertIn("mk:Entigram_Artifact a owl:Class", ttl)
+        self.assertIn("mk:Entigram_Delivery_Drift a owl:Class", ttl)
+        self.assertIn("mk:Entigram_Agent_proof_capabilities a owl:DatatypeProperty", ttl)
+        self.assertIn("mk:Entigram_Artifact_sha256 a owl:DatatypeProperty", ttl)
+        self.assertIn("mk:Entigram_Delivery_Drift_drift_status a owl:DatatypeProperty", ttl)
         self.assertIn("mk:Entigram_Expectation_developer_expectation a owl:DatatypeProperty", ttl)
         self.assertIn("mk:relates_Entigram_Expectation_to_Entigram_Delivery_Evidence", ttl)
 

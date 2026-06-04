@@ -1,6 +1,7 @@
 """
 Tests for the durable delivery ledger:
 - delivery_evidence (commissioner pass persistence)
+- delivery_artifacts (source-control-neutral artifact anchors)
 - improvement_proposals (lifecycle tracking)
 - delivery_snapshots (drift detection anchor)
 """
@@ -11,6 +12,9 @@ from entigram.sqlite_ledger.manager import LedgerManager
 class TestDeliveryEvidence(unittest.TestCase):
     def setUp(self):
         self.ledger = LedgerManager(":memory:")
+
+    def tearDown(self):
+        self.ledger.close()
 
     def test_record_and_retrieve_delivery_evidence(self):
         row_id = self.ledger.record_delivery_evidence(
@@ -66,6 +70,9 @@ class TestImprovementProposals(unittest.TestCase):
     def setUp(self):
         self.ledger = LedgerManager(":memory:")
 
+    def tearDown(self):
+        self.ledger.close()
+
     def test_record_and_retrieve_proposal(self):
         row_id = self.ledger.record_improvement_proposal(
             title="Add Blocked expectation state",
@@ -120,6 +127,9 @@ class TestDeliverySnapshots(unittest.TestCase):
     def setUp(self):
         self.ledger = LedgerManager(":memory:")
 
+    def tearDown(self):
+        self.ledger.close()
+
     def test_record_and_retrieve_snapshot(self):
         success = self.ledger.record_delivery_snapshot(
             snapshot_id="delivery-20260604T120000-Antigravity",
@@ -129,6 +139,7 @@ class TestDeliverySnapshots(unittest.TestCase):
             agent_id="Antigravity",
             warden_status="intact",
             evidence_ids=[1, 2],
+            artifact_ids=[3, 4],
             metadata={"proofs_provided": 2},
         )
         self.assertTrue(success)
@@ -141,6 +152,7 @@ class TestDeliverySnapshots(unittest.TestCase):
         self.assertEqual(snap["schema_hash"], "abc123def456ab12")
         self.assertEqual(snap["warden_status"], "intact")
         self.assertEqual(snap["evidence_ids"], [1, 2])
+        self.assertEqual(snap["artifact_ids"], [3, 4])
         self.assertEqual(snap["metadata"]["proofs_provided"], 2)
 
     def test_get_latest_snapshot_returns_most_recent(self):
@@ -156,6 +168,47 @@ class TestDeliverySnapshots(unittest.TestCase):
     def test_no_snapshot_returns_none(self):
         snap = self.ledger.get_latest_snapshot()
         self.assertIsNone(snap)
+
+
+class TestDeliveryArtifacts(unittest.TestCase):
+    def setUp(self):
+        self.ledger = LedgerManager(":memory:")
+
+    def tearDown(self):
+        self.ledger.close()
+
+    def test_record_and_retrieve_delivery_artifact(self):
+        artifact_id = self.ledger.record_delivery_artifact(
+            path="schema.lds",
+            artifact_role="schema_contract",
+            sha256="abc123",
+            size_bytes=42,
+            content_type="text/plain",
+            source_ref="schema.lds",
+        )
+
+        self.assertIsNotNone(artifact_id)
+        artifacts = self.ledger.get_delivery_artifacts()
+        self.assertEqual(len(artifacts), 1)
+        self.assertEqual(artifacts[0]["path"], "schema.lds")
+        self.assertEqual(artifacts[0]["artifact_role"], "schema_contract")
+        self.assertEqual(artifacts[0]["sha256"], "abc123")
+        self.assertEqual(artifacts[0]["size_bytes"], 42)
+
+    def test_get_delivery_artifacts_by_ids_preserves_snapshot_order(self):
+        first = self.ledger.record_delivery_artifact(
+            path="schema.lds",
+            artifact_role="schema_contract",
+            sha256="abc123",
+        )
+        second = self.ledger.record_delivery_artifact(
+            path="local-result.txt",
+            artifact_role="delivery_artifact",
+            sha256="def456",
+        )
+
+        artifacts = self.ledger.get_delivery_artifacts_by_ids([second, first])
+        self.assertEqual([artifact["id"] for artifact in artifacts], [second, first])
 
 
 class TestCommissionerWritesEvidence(unittest.TestCase):
@@ -174,31 +227,194 @@ EXPECTATION: Stable Loop {
         from entigram.governance.commissioner import Commissioner
 
         ledger = LedgerManager(":memory:")
-        commissioner = Commissioner(self.SCHEMA, ledger=ledger)
-        checklist = commissioner.build_checklist(
-            proofs=["tests/test_loop.py passed 3 assertions"],
-            agent_id="TestAgent",
-        )
+        try:
+            commissioner = Commissioner(self.SCHEMA, ledger=ledger)
+            checklist = commissioner.build_checklist(
+                proofs=["tests/test_loop.py passed 3 assertions"],
+                agent_id="TestAgent",
+            )
 
-        self.assertTrue(checklist["valid"])
+            self.assertTrue(checklist["valid"])
 
-        # Verify evidence was written
-        evidence = ledger.get_delivery_evidence(expectation_name="Stable Loop")
-        self.assertEqual(len(evidence), 1)
-        self.assertTrue(evidence[0]["passed"])
-        self.assertEqual(evidence[0]["agent_id"], "TestAgent")
-        self.assertEqual(evidence[0]["evidence_type"], "commission_pass")
+            # Verify evidence was written
+            evidence = ledger.get_delivery_evidence(expectation_name="Stable Loop")
+            self.assertEqual(len(evidence), 1)
+            self.assertTrue(evidence[0]["passed"])
+            self.assertEqual(evidence[0]["agent_id"], "TestAgent")
+            self.assertEqual(evidence[0]["evidence_type"], "commission_pass")
+        finally:
+            ledger.close()
 
     def test_commissioner_fail_does_not_write_evidence(self):
         from entigram.governance.commissioner import Commissioner
 
         ledger = LedgerManager(":memory:")
-        commissioner = Commissioner(self.SCHEMA, ledger=ledger)
-        checklist = commissioner.build_checklist(proofs=[], agent_id="TestAgent")
+        try:
+            commissioner = Commissioner(self.SCHEMA, ledger=ledger)
+            checklist = commissioner.build_checklist(proofs=[], agent_id="TestAgent")
 
-        self.assertFalse(checklist["valid"])
-        evidence = ledger.get_delivery_evidence()
-        self.assertEqual(len(evidence), 0)
+            self.assertFalse(checklist["valid"])
+            evidence = ledger.get_delivery_evidence()
+            self.assertEqual(len(evidence), 0)
+        finally:
+            ledger.close()
+
+    def test_commissioner_accepts_prior_passed_evidence_as_proof(self):
+        from entigram.governance.commissioner import Commissioner
+
+        ledger = LedgerManager(":memory:")
+        try:
+            evidence_id = ledger.record_delivery_evidence(
+                evidence_type="test_run",
+                artifact_ref="tests/test_loop.py",
+                expectation_name="Stable Loop",
+                command="tests/test_loop.py",
+                result_summary="test passed",
+                passed=True,
+                agent_id="Resolver",
+            )
+
+            commissioner = Commissioner(self.SCHEMA, ledger=ledger)
+            checklist = commissioner.build_checklist(agent_id="Deliverer")
+
+            self.assertTrue(checklist["valid"])
+            self.assertIn(evidence_id, checklist["evidence_ids"])
+        finally:
+            ledger.close()
+
+
+class TestBrokerDeliverySnapshots(unittest.TestCase):
+    SCHEMA = TestCommissionerWritesEvidence.SCHEMA
+
+    def test_delivery_snapshot_anchors_evidence_ids(self):
+        import tempfile
+        import shutil
+        from pathlib import Path
+
+        from entigram.broker import EntigramBroker
+        from entigram.injector import inject_entigram_manifest
+
+        test_dir = tempfile.mkdtemp()
+        ledger = None
+        try:
+            inject_entigram_manifest(test_dir, ["Entigram Schemas"], "Codex")
+            Path(test_dir, "schema.lds").write_text(self.SCHEMA)
+            ledger = LedgerManager(":memory:")
+            broker = EntigramBroker(test_dir, ledger=ledger)
+
+            checklist = broker.commission_and_record(
+                proofs=["tests/test_loop.py passed"],
+                agent_id="TestAgent",
+            )
+
+            self.assertTrue(checklist["valid"])
+            self.assertTrue(checklist["evidence_ids"])
+            self.assertTrue(checklist["artifact_ids"])
+            snapshot = ledger.get_latest_snapshot()
+            self.assertIsNotNone(snapshot)
+            self.assertEqual(snapshot["evidence_ids"], checklist["evidence_ids"])
+            self.assertEqual(snapshot["artifact_ids"], checklist["artifact_ids"])
+            artifacts = ledger.get_delivery_artifacts()
+            self.assertTrue(any(a["path"] == "schema.lds" for a in artifacts))
+        finally:
+            if ledger is not None:
+                ledger.close()
+            shutil.rmtree(test_dir)
+
+    def test_delivery_status_reports_current_snapshot(self):
+        import tempfile
+        import shutil
+        from pathlib import Path
+
+        from entigram.broker import EntigramBroker
+        from entigram.injector import inject_entigram_manifest
+
+        test_dir = tempfile.mkdtemp()
+        ledger = None
+        try:
+            inject_entigram_manifest(test_dir, ["Entigram Schemas"], "Codex")
+            Path(test_dir, "schema.lds").write_text(self.SCHEMA)
+            ledger = LedgerManager(":memory:")
+            broker = EntigramBroker(test_dir, ledger=ledger)
+
+            broker.commission_and_record(
+                proofs=["tests/test_loop.py passed"],
+                agent_id="TestAgent",
+            )
+
+            status = broker.delivery_status()
+            self.assertTrue(status["valid"])
+            self.assertFalse(status["needs_recommission"])
+            self.assertEqual(status["artifact_changes"], [])
+        finally:
+            if ledger is not None:
+                ledger.close()
+            shutil.rmtree(test_dir)
+
+    def test_delivery_status_reports_artifact_drift(self):
+        import tempfile
+        import shutil
+        from pathlib import Path
+
+        from entigram.broker import EntigramBroker
+        from entigram.injector import inject_entigram_manifest
+
+        test_dir = tempfile.mkdtemp()
+        ledger = None
+        try:
+            inject_entigram_manifest(test_dir, ["Entigram Schemas"], "Codex")
+            Path(test_dir, "schema.lds").write_text(self.SCHEMA)
+            ledger = LedgerManager(":memory:")
+            broker = EntigramBroker(test_dir, ledger=ledger)
+
+            broker.commission_and_record(
+                proofs=["tests/test_loop.py passed"],
+                agent_id="TestAgent",
+            )
+            Path(test_dir, "schema.lds").write_text(self.SCHEMA + "\nENTITY: Extra\n")
+
+            status = broker.delivery_status()
+            self.assertFalse(status["valid"])
+            self.assertTrue(status["needs_recommission"])
+            self.assertTrue(any(
+                change["path"] == "schema.lds" and change["status"] == "changed"
+                for change in status["artifact_changes"]
+            ))
+        finally:
+            if ledger is not None:
+                ledger.close()
+            shutil.rmtree(test_dir)
+
+    def test_delivery_status_reports_unanchored_requested_artifact(self):
+        import tempfile
+        import shutil
+        from pathlib import Path
+
+        from entigram.broker import EntigramBroker
+        from entigram.injector import inject_entigram_manifest
+
+        test_dir = tempfile.mkdtemp()
+        ledger = None
+        try:
+            inject_entigram_manifest(test_dir, ["Entigram Schemas"], "Codex")
+            Path(test_dir, "schema.lds").write_text(self.SCHEMA)
+            Path(test_dir, "local-result.txt").write_text("new output")
+            ledger = LedgerManager(":memory:")
+            broker = EntigramBroker(test_dir, ledger=ledger)
+
+            broker.commission_and_record(
+                proofs=["tests/test_loop.py passed"],
+                agent_id="TestAgent",
+            )
+
+            status = broker.delivery_status(artifact_paths=["local-result.txt"])
+            self.assertFalse(status["valid"])
+            self.assertEqual(status["unanchored_artifacts"][0]["path"], "local-result.txt")
+            self.assertEqual(status["unanchored_artifacts"][0]["status"], "unanchored")
+        finally:
+            if ledger is not None:
+                ledger.close()
+            shutil.rmtree(test_dir)
 
 
 if __name__ == "__main__":
