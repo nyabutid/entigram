@@ -224,6 +224,7 @@ def main():
     agent_launch_parser.add_argument("--dir", help="Target directory")
     agent_launch_parser.add_argument("--engine", help="Override CLI Engine (Claude Code, Antigravity, Codex, Ollama)")
     agent_launch_parser.add_argument("--model", help="Specify model (e.g., qwen2.5, claude-3-opus)")
+    agent_launch_parser.add_argument("--ollama-launch-option", help="Ollama launch target (e.g., claude, codex)")
     agent_launch_parser.add_argument("--headless", action="store_true", help="Run headlessly using stdin piping (Antigravity only)")
 
     # interview command
@@ -231,6 +232,7 @@ def main():
     interview_parser.add_argument("--dir", help="Target directory")
     interview_parser.add_argument("--engine", help="Override CLI Engine (Claude Code, Antigravity, Codex, Ollama)")
     interview_parser.add_argument("--model", help="Specify model")
+    interview_parser.add_argument("--ollama-launch-option", help="Ollama launch target (e.g., claude, codex)")
     interview_parser.add_argument("--headless", action="store_true", help="Run headlessly using stdin piping (Antigravity only)")
 
     # model command (One-shot headless modeling)
@@ -594,7 +596,14 @@ def main():
         with open(boot_file, "w") as f:
             f.write(hydration_vector)
             
-        launch_agent(target_dir, engine, model=getattr(args, "model", None), initial_prompt=f"Initialize from {boot_file}. Silent boot. Ready.", headless=args.headless)
+        launch_agent(
+            target_dir,
+            engine,
+            model=getattr(args, "model", None),
+            ollama_launch_option=getattr(args, "ollama_launch_option", None),
+            initial_prompt=f"Initialize from {boot_file}. Silent boot. Ready.",
+            headless=args.headless,
+        )
 
     elif args.command == "interview":
         target_dir = args.dir
@@ -638,7 +647,14 @@ def main():
         with open(boot_file, "w") as f:
             f.write(hydration_vector)
             
-        launch_agent(target_dir, engine, model=getattr(args, "model", None), initial_prompt=f"Initialize from {boot_file}. Silent boot. Ready.", headless=args.headless)
+        launch_agent(
+            target_dir,
+            engine,
+            model=getattr(args, "model", None),
+            ollama_launch_option=getattr(args, "ollama_launch_option", None),
+            initial_prompt=f"Initialize from {boot_file}. Silent boot. Ready.",
+            headless=args.headless,
+        )
 
     elif args.command == "model":
         target_dir = args.dir

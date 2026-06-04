@@ -6,6 +6,11 @@ import tempfile
 import stat
 from pathlib import Path
 
+OLLAMA_LAUNCH_OPTIONS = {
+    "Claude Code": "claude",
+    "Codex": "codex",
+}
+
 
 def _escape_applescript(s: str) -> str:
     """Escapes a string for safe embedding inside an AppleScript double-quoted string."""
@@ -32,6 +37,38 @@ def _build_codex_command(initial_prompt: str = "", flags=None, model: str = None
     if initial_prompt:
         parts.append(shlex.quote(_sanitize_initial_prompt(initial_prompt)))
     return " ".join(parts)
+
+
+def list_ollama_models():
+    """Return locally available Ollama model names from `ollama list`."""
+    try:
+        result = subprocess.run(
+            ["ollama", "list"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return []
+
+    models = []
+    for line in result.stdout.splitlines()[1:]:
+        parts = line.split()
+        if parts:
+            models.append(parts[0])
+    return models
+
+
+def _normalize_ollama_launch_option(option: str = None) -> str:
+    if not option:
+        return "claude"
+    return OLLAMA_LAUNCH_OPTIONS.get(option, option)
+
+
+def _build_ollama_command(launch_option: str = None, model: str = None) -> str:
+    app = _normalize_ollama_launch_option(launch_option)
+    selected_model = model or "qwen3"
+    return f"ollama launch {shlex.quote(app)} --model {shlex.quote(selected_model)}"
 
 
 def execute_headless_agy(prompt: str, target_dir: str = "."):
@@ -61,7 +98,15 @@ def execute_headless_agy(prompt: str, target_dir: str = "."):
         sys.exit(1)
 
 
-def launch_agent(target_dir: str, engine: str, yolo: bool = False, initial_prompt: str = "", headless: bool = False, model: str = None):
+def launch_agent(
+    target_dir: str,
+    engine: str,
+    yolo: bool = False,
+    initial_prompt: str = "",
+    headless: bool = False,
+    model: str = None,
+    ollama_launch_option: str = None,
+):
     """
     Attempts to launch the selected CLI agent in the target directory.
     On macOS, it opens a new Terminal window and brings it to the front.
@@ -81,13 +126,7 @@ def launch_agent(target_dir: str, engine: str, yolo: bool = False, initial_promp
             # claude code usually doesn't take --model directly in the command but maybe?
             pass 
     elif engine == "Ollama":
-        # Entigram targets the Claude Code integration via Ollama
-        app = "claude"
-        if model:
-            engine_cmd = f"ollama launch {app} --model {model}"
-        else:
-            # Default to qwen3 as requested by user to allow silent boot
-            engine_cmd = f"ollama launch {app} --model qwen3"
+        engine_cmd = _build_ollama_command(ollama_launch_option, model)
     elif engine == "Codex":
         engine_cmd = _build_codex_command(model=model)
     else:
