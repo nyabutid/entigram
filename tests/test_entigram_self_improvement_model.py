@@ -23,7 +23,7 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
             "Entigram_Delivery_Evidence",
             "Entigram_Delivery_Evaluation",
             "Entigram_Improvement_Proposal",
-            "Entigram_Learning",
+            "Entigram_Lesson",
             "Entigram_Delivery_Snapshot",
             "Entigram_Artifact",
             "Entigram_Delivery_Drift",
@@ -52,7 +52,7 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
         self.assertIn(("Entigram_Expectation", "Entigram_Delivery_Evidence"), relationship_pairs)
         self.assertIn(("Entigram_Expectation", "Entigram_Delivery_Evaluation"), relationship_pairs)
         self.assertIn(("Entigram_Expectation", "Entigram_Improvement_Proposal"), relationship_pairs)
-        self.assertIn(("Entigram_Project", "Entigram_Learning"), relationship_pairs)
+        self.assertIn(("Entigram_Project", "Entigram_Lesson"), relationship_pairs)
         self.assertIn(("Entigram_Project", "Entigram_Delivery_Snapshot"), relationship_pairs)
         self.assertIn(("Entigram_Project", "Entigram_Artifact"), relationship_pairs)
         self.assertIn(("Entigram_Delivery_Snapshot", "Entigram_Artifact"), relationship_pairs)

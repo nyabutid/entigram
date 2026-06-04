@@ -158,7 +158,7 @@ ATTRIBUTES:
   - created_by (String)
   - created_at (DateTime)
 
-ENTITY: Entigram_Learning
+ENTITY: Entigram_Lesson
 ATTRIBUTES:
   - .id (UUID)
   - source_task (String)
@@ -288,7 +288,7 @@ RELATIONSHIPS:
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Ontology_Concept
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Agent_Proposal
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Expectation
-- Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Learning
+- Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Lesson
 - Entigram_Agent (1) [MUST] --- [MAY] (MANY) Entigram_Delivery_Evidence
 - Entigram_Expectation (1) [MUST] --- [MAY] (MANY) Entigram_Delivery_Evidence
 - Entigram_Expectation (1) [MUST] --- [MAY] (MANY) Entigram_Delivery_Evaluation
@@ -359,7 +359,7 @@ EXPECTATION: Agent Delivery Proof {
 }
 
 /* Updated: 2026-05-20 Headless Antigravity engine execution via stdin piping support added */
-/* Updated: 2026-06-04 Entigram self-improvement loop modeled with expectations, evidence, evaluations, proposals, and learnings */
+/* Updated: 2026-06-04 Entigram self-improvement loop modeled with expectations, evidence, evaluations, proposals, and lessons */
 /* Updated: 2026-06-04 Commissioner companion features: Entigram_Delivery_Snapshot, Blocked lifecycle, proof_capabilities, improvement proposals */
 /* Updated: 2026-06-04 Artifact-centered delivery snapshots for source-control-neutral workspaces */
 /* Updated: 2026-06-04 Delivery drift status modeled as a read-only recommission signal */

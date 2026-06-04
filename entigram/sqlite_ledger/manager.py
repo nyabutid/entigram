@@ -173,9 +173,9 @@ class LedgerManager:
                 "lifecycle_status": "TEXT DEFAULT 'Proposed'",
                 "created_by": "TEXT",
             })
-            # Table for reusable learnings (Entigram_Learning operational path)
+            # Table for reusable lessons (Entigram_Lesson operational path)
             conn.execute('''
-                CREATE TABLE IF NOT EXISTS learnings (
+                CREATE TABLE IF NOT EXISTS lessons (
                     id INTEGER PRIMARY KEY,
                     source_task TEXT,
                     lesson TEXT NOT NULL,
@@ -186,7 +186,7 @@ class LedgerManager:
                     observed_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
-            self._ensure_columns(conn, "learnings", {
+            self._ensure_columns(conn, "lessons", {
                 "agent_id": "TEXT",
             })
             # Table for delivery snapshots (frozen boot state at commission pass)
@@ -696,7 +696,7 @@ class LedgerManager:
         finally:
             if self.db_path != ":memory:": conn.close()
 
-    def record_learning(
+    def record_lesson(
         self,
         lesson: str,
         *,
@@ -706,29 +706,29 @@ class LedgerManager:
         lifecycle_status: str = "Active",
         agent_id: Optional[str] = None,
     ) -> Optional[int]:
-        """Persists a reusable learning / lesson to the ledger (Entigram_Learning operational path)."""
+        """Persists a reusable lesson to the ledger (Entigram_Lesson operational path)."""
         conn = self._get_connection()
         try:
             with conn:
                 cursor = conn.execute(
-                    "INSERT INTO learnings "
+                    "INSERT INTO lessons "
                     "(source_task, lesson, reusable_rule, confidence, lifecycle_status, agent_id) "
                     "VALUES (?, ?, ?, ?, ?, ?)",
                     (source_task, lesson, reusable_rule, confidence, lifecycle_status, agent_id),
                 )
                 return cursor.lastrowid
         except Exception as e:
-            print(f"Ledger Error (Learning): {e}")
+            print(f"Ledger Error (Lesson): {e}")
             return None
         finally:
             if self.db_path != ":memory:": conn.close()
 
-    def get_learnings(
+    def get_lessons(
         self,
         lifecycle_status: Optional[str] = None,
         limit: int = 50,
     ) -> List[Dict[str, Any]]:
-        """Retrieves recorded learnings."""
+        """Retrieves recorded lessons."""
         conn = self._get_connection()
         try:
             conditions, params = [], []
@@ -739,7 +739,7 @@ class LedgerManager:
             cursor = conn.execute(
                 f"SELECT id, source_task, lesson, reusable_rule, confidence, "
                 f"lifecycle_status, agent_id, observed_at "
-                f"FROM learnings {where} ORDER BY observed_at DESC LIMIT ?",
+                f"FROM lessons {where} ORDER BY observed_at DESC LIMIT ?",
                 params + [limit],
             )
             return [

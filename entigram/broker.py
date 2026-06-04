@@ -686,7 +686,7 @@ class EntigramBroker:
             lifecycle_status=lifecycle_status,
         )
 
-    def record_learning(
+    def record_lesson(
         self,
         lesson: str,
         *,
@@ -696,10 +696,10 @@ class EntigramBroker:
         agent_id: Optional[str] = None,
     ) -> Optional[int]:
         """
-        Persists a reusable learning derived from a delivery session.
-        These accumulate as institutional memory across all agents.
+        Persists a reusable lesson derived from a delivery session.
+        Lessons accumulate as institutional memory across all agents.
         """
-        return self.ledger.record_learning(
+        return self.ledger.record_lesson(
             lesson=lesson,
             source_task=source_task,
             reusable_rule=reusable_rule,
