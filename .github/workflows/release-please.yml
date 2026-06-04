@@ -91,7 +91,13 @@ jobs:
           # Clone and update Homebrew tap
           git clone https://x-access-token:${HOMEBREW_TAP_GITHUB_TOKEN}@github.com/nyabutid/homebrew-entigram.git
           cd homebrew-entigram
-          FORMULA=Formula/entigram.rb
+          FORMULA=$(find Formula -maxdepth 1 -type f -name '*entigram*.rb' | sort | head -n 1)
+          if [ -z "$FORMULA" ]; then
+            echo "No Entigram formula found under Formula/."
+            find Formula -maxdepth 2 -type f -name '*.rb' | sort
+            exit 1
+          fi
+          echo "Updating formula: $FORMULA"
           sed -i "s/entigram[-_]ai-[^/[:space:]]*\.tar\.gz/$(basename "$SDIST_PATH")/g" $FORMULA
           sed -i "s/sha256 \".*\"/sha256 \"${SHA256}\"/g" $FORMULA
           git config user.name "GitHub Actions Bot"
