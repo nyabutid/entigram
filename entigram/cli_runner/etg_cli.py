@@ -63,6 +63,11 @@ def get_hydration_vector(target_path: Path, compact: bool = False) -> str:
     # 2. Extract state from ledger
     alignments = []
     resolutions = []
+    delivery_evidence = []
+    delivery_artifacts = []
+    improvement_proposals = []
+    latest_delivery_snapshot = None
+    current_delivery_status = None
     if ledger_path.exists():
         from entigram.sqlite_ledger.manager import LedgerManager
         manager = LedgerManager(str(ledger_path))
@@ -75,6 +80,18 @@ def get_hydration_vector(target_path: Path, compact: bool = False) -> str:
             # Fetch recent resolutions
             cursor = conn.execute("SELECT conflict_id, entity_type, resolved_state FROM human_resolutions ORDER BY timestamp DESC LIMIT 10")
             resolutions = [{"id": r[0], "type": r[1], "state": r[2]} for r in cursor.fetchall()]
+
+            delivery_evidence = manager.get_delivery_evidence(passed_only=True, limit=10)
+            delivery_artifacts = manager.get_delivery_artifacts(limit=10)
+            improvement_proposals = manager.get_improvement_proposals(limit=10)
+            latest_delivery_snapshot = manager.get_latest_snapshot()
+            if latest_delivery_snapshot:
+                from entigram.broker import EntigramBroker
+                current_delivery_status = EntigramBroker(
+                    str(target_path),
+                    ledger=manager,
+                    seed_synonyms=False,
+                ).delivery_status()
         except Exception:
             pass
         finally:
@@ -87,14 +104,25 @@ def get_hydration_vector(target_path: Path, compact: bool = False) -> str:
     if schema_path.exists():
         schema_content = schema_path.read_text()
 
+    commissioner_checklist = {"expectation_count": 0, "items": []}
+    if schema_content:
+        from entigram.governance.commissioner import Commissioner
+        commissioner_checklist = Commissioner(schema_content).build_checklist()
+
     # 4. Flatten to High-Density String
     boot_payload = {
         "ENTIGRAM_BOOT_VECTOR": {
             "version": manifest.get("entigram_version"),
             "packages": list(manifest.get("packages", {}).keys()),
             "physical_laws": schema_content,
+            "commissioner": commissioner_checklist,
             "semantic_alignments": alignments,
             "settled_decisions": resolutions,
+            "delivery_evidence": delivery_evidence,
+            "delivery_artifacts": delivery_artifacts,
+            "improvement_proposals": improvement_proposals,
+            "latest_delivery_snapshot": latest_delivery_snapshot,
+            "current_delivery_status": current_delivery_status,
             "timestamp": datetime.now().isoformat()
         }
     }
@@ -277,11 +305,139 @@ def main():
     broker_subparsers.add_parser("resolutions", help="List all settled resolutions")
     broker_subparsers.add_parser("validate", help="Validate current Schema model")
 
+    commission_parser = broker_subparsers.add_parser(
+        "commission",
+        aliases=["commissioner"],
+        help="Run the Commissioner pre-handoff expectation checklist",
+    )
+    commission_parser.add_argument(
+        "--proof",
+        action="append",
+        default=[],
+        help="Proof text or artifact reference that satisfies a validation_check",
+    )
+    commission_parser.add_argument("--json", action="store_true", dest="json_output", help="Print checklist as JSON")
+    commission_parser.add_argument("--agent", help="Agent ID to attribute evidence to")
+    commission_parser.add_argument(
+        "--blocked",
+        action="append",
+        default=[],
+        metavar="CHECK",
+        help="Mark a validation_check as Blocked (infra failure, not a proof gap)",
+    )
+
+    deliver_parser = broker_subparsers.add_parser(
+        "deliver",
+        help="Run commissioner + write a delivery snapshot (deterministic handoff gate)",
+    )
+    deliver_parser.add_argument(
+        "--expectation",
+        help="Filter to a specific expectation name",
+    )
+    deliver_parser.add_argument(
+        "--proof",
+        action="append",
+        default=[],
+        help="Proof text or artifact reference",
+    )
+    deliver_parser.add_argument(
+        "--artifact",
+        action="append",
+        default=[],
+        help="Local artifact path to hash and attach to the delivery snapshot",
+    )
+    deliver_parser.add_argument(
+        "--artifact-role",
+        default="delivery_artifact",
+        help="Role to apply to --artifact entries",
+    )
+    deliver_parser.add_argument(
+        "--blocked",
+        action="append",
+        default=[],
+        metavar="CHECK",
+        help="Mark a validation_check as Blocked",
+    )
+    deliver_parser.add_argument("--agent", help="Agent ID to attribute this delivery to")
+    deliver_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
+
+    status_parser = broker_subparsers.add_parser(
+        "status",
+        aliases=["diff"],
+        help="Compare current expectations and artifacts against the latest delivery snapshot",
+    )
+    status_parser.add_argument(
+        "--artifact",
+        action="append",
+        default=[],
+        help="Local artifact path expected to be included in the delivery anchor",
+    )
+    status_parser.add_argument(
+        "--artifact-role",
+        default="delivery_artifact",
+        help="Role to apply to --artifact entries",
+    )
+    status_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
+
+    resolve_parser = broker_subparsers.add_parser(
+        "resolve",
+        help="Run missing proof commands and record evidence (exit commissioner blocked state)",
+    )
+    resolve_parser.add_argument(
+        "--run-missing-proofs",
+        action="store_true",
+        help="Attempt to run all validation_check commands and record the outcomes",
+    )
+    resolve_parser.add_argument("--agent", help="Agent ID to attribute evidence to")
+    resolve_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
+
     add_package_parser = broker_subparsers.add_parser("add-package", help="Add a package to the manifest")
     add_package_parser.add_argument("--name", required=True, help="Package name")
 
     broker_subparsers.add_parser("sense", help="Scan active domains for contradictions")
     broker_subparsers.add_parser("sync", help="Propagate human resolutions to domain states")
+
+    # improve command (improvement proposal lifecycle)
+    improve_parser = subparsers.add_parser("improve", help="Manage Entigram improvement proposals")
+    improve_subparsers = improve_parser.add_subparsers(dest="improve_command", help="Improve commands")
+    improve_parser.add_argument("--dir", default=".", help="Target directory")
+
+    propose_parser = improve_subparsers.add_parser("propose", help="Record a new improvement proposal")
+    propose_parser.add_argument("--title", required=True, help="Short title for the proposal")
+    propose_parser.add_argument("--model", required=True, help="Affected model or entity name")
+    propose_parser.add_argument("--rationale", required=True, help="Why this improvement is needed")
+    propose_parser.add_argument("--change", required=True, help="Proposed change description (plain text or JSON)")
+    propose_parser.add_argument("--benefit", help="Expected benefit")
+    propose_parser.add_argument("--by", help="Agent or author ID")
+    propose_parser.add_argument(
+        "--status",
+        default="Proposed",
+        help="Lifecycle status: Proposed (default), Reviewed, Implemented, Rejected",
+    )
+
+    list_proposals_parser = improve_subparsers.add_parser("list", help="List improvement proposals")
+    list_proposals_parser.add_argument(
+        "--status",
+        default=None,
+        help="Filter by lifecycle status (Proposed, Reviewed, Implemented, Rejected)",
+    )
+    list_proposals_parser.add_argument("--json", action="store_true", dest="json_output", help="Output as JSON")
+
+    # learn command (Entigram_Lesson operational path)
+    learn_parser = subparsers.add_parser("learn", help="Record and retrieve reusable lessons from deliveries")
+    learn_subparsers = learn_parser.add_subparsers(dest="learn_command", help="Learn commands")
+    learn_parser.add_argument("--dir", default=".", help="Target directory")
+
+    learn_record_parser = learn_subparsers.add_parser("record", help="Persist a new lesson to the ledger")
+    learn_record_parser.add_argument("--lesson", required=True, help="The lesson learned (plain language)")
+    learn_record_parser.add_argument("--task", help="Source task or session context")
+    learn_record_parser.add_argument("--rule", help="Reusable rule derived from the lesson")
+    learn_record_parser.add_argument("--confidence", type=float, default=1.0, help="Confidence 0.0-1.0 (default 1.0)")
+    learn_record_parser.add_argument("--by", help="Agent ID")
+
+    learn_list_parser = learn_subparsers.add_parser("list", help="List recorded lessons")
+    learn_list_parser.add_argument("--status", default=None, help="Filter by lifecycle (Active, Archived)")
+    learn_list_parser.add_argument("--json", action="store_true", dest="json_output", help="Output as JSON")
 
     # hydrate / boot command
     hydrate_parser = subparsers.add_parser("hydrate", help="Deterministic boot sequence to align LLM state vector")
@@ -799,10 +955,168 @@ RELATIONSHIPS:
         elif args.broker_command == "validate":
             result = broker.validate_model()
             if result['valid']:
+                e_warns = result.get("expectation_warnings", [])
                 print(f"✅ Model valid: {result['entity_count']} entities, {result['relationship_count']} rels.")
+                if e_warns:
+                    print(f"⚠️  {len(e_warns)} expectation-to-test mapping warning(s):")
+                    for w in e_warns:
+                        print(f"   [{w['code']}] {w['message']}")
+                elif result.get("expectation_count", 0) == 0 or not result.get("expectation_warnings"):
+                    print("   ✅ All modeled expectations have resolvable validation_check paths.")
             else:
                 print(f"❌ Model invalid: {result['error']}")
                 sys.exit(1)
+        elif args.broker_command in ("commission", "commissioner"):
+            result = broker.commission(
+                proofs=args.proof,
+                blocked_checks=getattr(args, "blocked", []),
+                agent_id=getattr(args, "agent", None),
+            )
+            if args.json_output:
+                print(json.dumps(result, indent=2))
+            else:
+                print(broker.format_commission(result))
+            if not result["valid"]:
+                sys.exit(1)
+        elif args.broker_command == "deliver":
+            result = broker.commission_and_record(
+                proofs=args.proof,
+                blocked_checks=getattr(args, "blocked", []),
+                agent_id=getattr(args, "agent", None),
+                expectation_name=getattr(args, "expectation", None),
+                artifact_paths=getattr(args, "artifact", []),
+                artifact_role=getattr(args, "artifact_role", "delivery_artifact"),
+            )
+            if args.json_output:
+                print(json.dumps(result, indent=2))
+            else:
+                print(broker.format_commission(result))
+                if result["valid"]:
+                    snap = result.get("snapshot_id", "unknown")
+                    ts = result.get("trust_score", {})
+                    grade = ts.get("grade", "?")
+                    score = ts.get("score", 0.0)
+                    print(f"\n📦 Delivery snapshot: {snap}")
+                    print(f"🎯 Trust score: {score:.0%} (Grade {grade})")
+                    bkd = ts.get("breakdown", {})
+                    for k, v in bkd.items():
+                        print(f"   {k}: {v:.0%}")
+                    print("✅ Handoff gate: PASSED. This delivery is anchored.")
+                else:
+                    ts = result.get("trust_score", {})
+                    if ts:
+                        print(f"\n🎯 Trust score: {ts.get('score', 0):.0%} (Grade {ts.get('grade', 'F')})")
+                    print("\n❌ Handoff gate: FAILED. Resolve missing proofs before delivering.")
+            if not result["valid"]:
+                sys.exit(1)
+        elif args.broker_command in ("status", "diff"):
+            result = broker.delivery_status(
+                artifact_paths=getattr(args, "artifact", []),
+                artifact_role=getattr(args, "artifact_role", "delivery_artifact"),
+            )
+            if args.json_output:
+                print(json.dumps(result, indent=2))
+            else:
+                print(broker.format_delivery_status(result))
+            if result.get("needs_recommission"):
+                sys.exit(1)
+        elif args.broker_command == "resolve":
+            # Run missing proof commands and record outcomes
+            checklist = broker.commission()
+            if checklist["valid"]:
+                print("✅ Commissioner: all expectations already have proof. Nothing to resolve.")
+            else:
+                missing = [
+                    item for item in checklist["items"]
+                    if item["status"] not in ("passed", "blocked")
+                ]
+                agent_id = getattr(args, "agent", None)
+                if getattr(args, "run_missing_proofs", False):
+                    import subprocess
+                    import shlex
+                    results = []
+                    for item in missing:
+                        cmd = item.get("validation_check", "")
+                        if not cmd:
+                            continue
+                        print(f"▶ Running: {cmd}")
+                        try:
+                            try:
+                                cmd_args = shlex.split(cmd)
+                            except ValueError as e:
+                                broker.ledger.record_delivery_evidence(
+                                    evidence_type="test_run",
+                                    artifact_ref=cmd,
+                                    expectation_name=item["name"],
+                                    command=cmd,
+                                    result_summary=f"Invalid validation command: {e}",
+                                    passed=False,
+                                    agent_id=agent_id,
+                                )
+                                results.append({"name": item["name"], "passed": False, "command": cmd})
+                                print(f"  ❌ INVALID COMMAND: {item['name']} ({e})")
+                                continue
+                            if not cmd_args:
+                                continue
+                            proc = subprocess.run(
+                                cmd_args,
+                                capture_output=True,
+                                text=True,
+                                timeout=120,
+                                cwd=str(broker.target_dir),
+                            )
+                            passed = proc.returncode == 0
+                            summary = (proc.stdout + proc.stderr).strip()[:500]
+                            broker.ledger.record_delivery_evidence(
+                                evidence_type="test_run",
+                                artifact_ref=cmd,
+                                expectation_name=item["name"],
+                                command=cmd,
+                                result_summary=summary,
+                                passed=passed,
+                                agent_id=agent_id,
+                            )
+                            status = "✅ PASS" if passed else "❌ FAIL"
+                            print(f"  {status}: {item['name']}")
+                            results.append({"name": item["name"], "passed": passed, "command": cmd})
+                        except FileNotFoundError as e:
+                            print(f"  ❌ COMMAND NOT FOUND: {item['name']} ({cmd})")
+                            broker.ledger.record_delivery_evidence(
+                                evidence_type="test_run",
+                                artifact_ref=cmd,
+                                expectation_name=item["name"],
+                                command=cmd,
+                                result_summary=str(e),
+                                passed=False,
+                                agent_id=agent_id,
+                            )
+                            results.append({"name": item["name"], "passed": False, "command": cmd})
+                        except subprocess.TimeoutExpired:
+                            print(f"  ⏰ TIMEOUT: {item['name']} ({cmd})")
+                            broker.ledger.record_delivery_evidence(
+                                evidence_type="test_run",
+                                artifact_ref=cmd,
+                                expectation_name=item["name"],
+                                command=cmd,
+                                result_summary="Timeout after 120s",
+                                passed=False,
+                                agent_id=agent_id,
+                            )
+                            results.append({"name": item["name"], "passed": False, "command": cmd})
+                    all_passed = all(r["passed"] for r in results) if results else False
+                    if all_passed:
+                        print("\n✅ All missing proofs resolved. Run 'etg broker deliver' to anchor this delivery.")
+                    else:
+                        print("\n⚠️  Some proofs failed. Address failures before delivering.")
+                        if args.json_output:
+                            print(json.dumps(results, indent=2))
+                        sys.exit(1)
+                else:
+                    print(f"Commissioner: {len(missing)} expectation(s) need proof:")
+                    for item in missing:
+                        print(f"  TODO {item['name']}: {item['validation_check']}")
+                    print("\nRun with --run-missing-proofs to execute and record them.")
+                    sys.exit(1)
         elif args.broker_command == "add-package":
             if broker.add_package(args.name):
                 print(f"✅ Package '{args.name}' added to manifest.")
@@ -918,6 +1232,99 @@ RELATIONSHIPS:
             if not scanner.authorize_bypass(args.package, args.id, args.rationale):
                 sys.exit(1)
     
+    elif args.command == "improve":
+        from entigram.broker import EntigramBroker
+        broker = EntigramBroker(args.dir)
+        if args.improve_command == "propose":
+            try:
+                import json as _json
+                change = _json.loads(args.change)
+            except (ValueError, TypeError):
+                change = {"description": args.change}
+            proposal_id = broker.record_improvement_proposal(
+                title=args.title,
+                affected_model=args.model,
+                proposed_change=change,
+                rationale=args.rationale,
+                expected_benefit=getattr(args, "benefit", None),
+                created_by=getattr(args, "by", None),
+                lifecycle_status=getattr(args, "status", "Proposed"),
+            )
+            if proposal_id:
+                status_label = getattr(args, "status", "Proposed")
+                print(f"✅ Improvement proposal #{proposal_id} recorded: '{args.title}'")
+                print(f"   Affected model: {args.model}")
+                print(f"   Lifecycle: {status_label}")
+                if status_label == "Proposed":
+                    print("   Advance with: etg improve list --status Proposed")
+            else:
+                print("❌ Failed to record proposal.")
+                sys.exit(1)
+        elif args.improve_command == "list":
+            proposals = broker.ledger.get_improvement_proposals(
+                lifecycle_status=getattr(args, "status", None)
+            )
+            if not proposals:
+                status_filter = getattr(args, "status", None)
+                label = f" (status: {status_filter})" if status_filter else ""
+                print(f"No improvement proposals found{label}.")
+            elif getattr(args, "json_output", False):
+                print(json.dumps(proposals, indent=2))
+            else:
+                print(f"Improvement Proposals ({len(proposals)} found):")
+                for p in proposals:
+                    icon = {"Proposed": "🔵", "Reviewed": "🟡", "Implemented": "🟢", "Rejected": "🔴"}.get(
+                        p["lifecycle_status"], "⚪"
+                    )
+                    print(f"  {icon} [{p['lifecycle_status']}] #{p['id']} {p['title']}")
+                    print(f"    Model: {p['affected_model']}")
+                    print(f"    Rationale: {p['rationale']}")
+                    if p.get("expected_benefit"):
+                        print(f"    Benefit: {p['expected_benefit']}")
+                    print(f"    Created: {p['created_at']} by {p.get('created_by', 'unknown')}")
+        else:
+            improve_parser.print_help()
+
+    elif args.command == "learn":
+        from entigram.broker import EntigramBroker
+        broker = EntigramBroker(args.dir)
+        if args.learn_command == "record":
+            lesson_id = broker.record_lesson(
+                lesson=args.lesson,
+                source_task=getattr(args, "task", None),
+                reusable_rule=getattr(args, "rule", None),
+                confidence=getattr(args, "confidence", 1.0),
+                agent_id=getattr(args, "by", None),
+            )
+            if lesson_id:
+                print(f"✅ Lesson #{lesson_id} recorded.")
+                if getattr(args, "rule", None):
+                    print(f"   Rule: {args.rule}")
+                print("   View with: etg learn list")
+            else:
+                print("❌ Failed to record lesson.")
+                sys.exit(1)
+        elif args.learn_command == "list":
+            lessons = broker.ledger.get_lessons(
+                lifecycle_status=getattr(args, "status", None)
+            )
+            if not lessons:
+                print("No lessons recorded yet.")
+            elif getattr(args, "json_output", False):
+                print(json.dumps(lessons, indent=2))
+            else:
+                print(f"Lessons ({len(lessons)} found):")
+                for l in lessons:
+                    print(f"  [{l['lifecycle_status']}] #{l['id']} {l['lesson'][:80]}")
+                    if l.get("reusable_rule"):
+                        print(f"    Rule: {l['reusable_rule']}")
+                    if l.get("source_task"):
+                        print(f"    Task: {l['source_task']}")
+                    conf = l.get("confidence", 1.0)
+                    print(f"    Confidence: {conf:.0%} | Agent: {l.get('agent_id', 'unknown')} | {l['observed_at']}")
+        else:
+            learn_parser.print_help()
+
     else:
         parser.print_help()
 

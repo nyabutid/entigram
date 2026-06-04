@@ -42,6 +42,9 @@ ATTRIBUTES:
   - role (String, MUST)
   - constraints (Text)
   - directives (Text)
+  - handoff_policy (Text)
+  - default_proof_policy (Text)
+  - proof_capabilities (Text) # comma-separated: test_run, command_output, human_review, artifact_review
   - package (String) [EXTERNAL: Entigram_Package.name]
 
 ENTITY: Entigram_Conflict
@@ -105,8 +108,65 @@ ATTRIBUTES:
   - proposed_change (JSON)
   - rationale (Text)
   - supporting_evidence (JSON)
+  - expected_benefit (Text)
+  - rollback_plan (Text)
   - lifecycle_status (String) # Proposed, Reviewed, Verified, Deprecated, Rejected
   - timestamp (DateTime)
+
+ENTITY: Entigram_Expectation
+ATTRIBUTES:
+  - .id (UUID)
+  - name (String, MUST, UNIQUE)
+  - owner (String)
+  - developer_expectation (Text, MUST)
+  - implementation_rule (Text, MUST)
+  - validation_check (String, MUST)
+  - priority (String) # Critical, High, Medium, Low
+  - lifecycle_status (String) # Proposed, Active, Satisfied, Blocked, Superseded, Deprecated
+  - created_at (DateTime)
+  - updated_at (DateTime)
+
+ENTITY: Entigram_Delivery_Evidence
+ATTRIBUTES:
+  - .id (UUID)
+  - evidence_type (String) # test_run, command_output, artifact_review, human_review, runtime_observation
+  - artifact_ref (String, MUST)
+  - command (String)
+  - result_summary (Text)
+  - passed (Boolean)
+  - observed_at (DateTime)
+
+ENTITY: Entigram_Delivery_Evaluation
+ATTRIBUTES:
+  - .id (UUID)
+  - status (String) # Accepted, Needs_Work, Blocked, Rejected
+  - score (Float)
+  - findings (JSON)
+  - residual_risk (Text)
+  - evaluated_by (String)
+  - evaluated_at (DateTime)
+
+ENTITY: Entigram_Improvement_Proposal
+ATTRIBUTES:
+  - .id (UUID)
+  - title (String, MUST)
+  - affected_model (String, MUST)
+  - proposed_change (JSON, MUST)
+  - rationale (Text, MUST)
+  - expected_benefit (Text)
+  - lifecycle_status (String) # Proposed, Reviewed, Implemented, Rejected, Deprecated
+  - created_by (String)
+  - created_at (DateTime)
+
+ENTITY: Entigram_Lesson
+ATTRIBUTES:
+  - .id (UUID)
+  - source_task (String)
+  - lesson (Text, MUST)
+  - reusable_rule (Text)
+  - confidence (Float)
+  - lifecycle_status (String) # Proposed, Active, Superseded, Deprecated
+  - observed_at (DateTime)
 
 ENTITY: Entigram_Grounding_Rule
 ATTRIBUTES:
@@ -182,6 +242,42 @@ ATTRIBUTES:
   - forecasted_demand (Integer)
   - confidence_interval (Float)
 
+ENTITY: Entigram_Delivery_Snapshot
+ATTRIBUTES:
+  - .id (UUID)
+  - snapshot_id (String, MUST, UNIQUE)
+  - expectation_count (Integer)
+  - missing_proof_count (Integer)
+  - schema_hash (String) # First 16 chars of SHA-256 for drift detection
+  - agent_id (String)
+  - warden_status (String) # intact, tampered
+  - evidence_ids (JSON) # list of delivery_evidence row IDs covered
+  - artifact_ids (JSON) # list of Entigram_Artifact ledger row IDs covered
+  - metadata (JSON)
+  - snapped_at (DateTime)
+
+ENTITY: Entigram_Artifact
+ATTRIBUTES:
+  - .id (UUID)
+  - path (String, MUST)
+  - artifact_role (String) # schema_contract, ontology_contract, delivery_artifact, evidence_artifact, local_artifact, external_reference
+  - sha256 (String)
+  - size_bytes (Integer)
+  - content_type (String)
+  - source_ref (String) # optional URI, local path, or external system reference
+  - captured_at (DateTime)
+
+ENTITY: Entigram_Delivery_Drift
+ATTRIBUTES:
+  - .id (UUID)
+  - snapshot_id (String, MUST)
+  - artifact_path (String)
+  - drift_status (String) # current, changed, missing, unanchored, missing_record
+  - previous_sha256 (String)
+  - current_sha256 (String)
+  - recommendation (String)
+  - observed_at (DateTime)
+
 RELATIONSHIPS:
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Package
 - Entigram_Package (1) [MUST] --- [MAY] (MANY) Entigram_Agent
@@ -191,6 +287,12 @@ RELATIONSHIPS:
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Synonym
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Ontology_Concept
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Agent_Proposal
+- Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Expectation
+- Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Lesson
+- Entigram_Agent (1) [MUST] --- [MAY] (MANY) Entigram_Delivery_Evidence
+- Entigram_Expectation (1) [MUST] --- [MAY] (MANY) Entigram_Delivery_Evidence
+- Entigram_Expectation (1) [MUST] --- [MAY] (MANY) Entigram_Delivery_Evaluation
+- Entigram_Expectation (1) [MUST] --- [MAY] (MANY) Entigram_Improvement_Proposal
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Grounding_Rule
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Negative_Constraint
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Partner_Organization
@@ -199,6 +301,10 @@ RELATIONSHIPS:
 - Entigram_Package (1) [MUST] --- [MAY] (MANY) Security_Bypass
 - Partner_Organization (1) [MUST] --- [MAY] (MANY) Entigram_Alignment
 - Salesforce_Integration (1) [MUST] --- [MAY] (MANY) Inventory_Forecast
+- Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Delivery_Snapshot
+- Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Artifact
+- Entigram_Delivery_Snapshot (1) [MUST] --- [MAY] (MANY) Entigram_Artifact
+- Entigram_Delivery_Snapshot (1) [MUST] --- [MAY] (MANY) Entigram_Delivery_Drift
 
 /* Phase 3 Macro Chain (Federated) */
 - Idea (1) --- (1) Partner_Organization [ALIGN: Idea.id == Partner_Organization.id]
@@ -238,4 +344,22 @@ RELATIONSHIPS:
 - Product (1) [MUST] --- [MAY] (MANY) Inventory_Item
 - Supplier (1) [MUST] --- [MAY] (MANY) Product
 
+EXPECTATION: Entigram Self-Improvement Loop {
+  developer_expectation: Entigram should use its own model to make Entigram stronger, more useful, and easier for agents to deliver against.
+  implementation_rule: Changes to Entigram behavior, governance, or schema must preserve a modeled expectation, evidence path, evaluation result, or improvement proposal.
+  validation_check: python -m unittest tests.test_entigram_self_improvement_model
+  proof: python -m unittest tests.test_entigram_self_improvement_model
+}
+
+EXPECTATION: Agent Delivery Proof {
+  developer_expectation: Agents should hand off only after the requested outcome, validation evidence, and residual risks are visible.
+  implementation_rule: Every material agent delivery should be traceable to Entigram_Expectation and Entigram_Delivery_Evidence, with Entigram_Delivery_Evaluation used when quality or risk must be judged.
+  validation_check: python -m unittest tests.test_entigram_self_improvement_model
+  proof: python -m unittest tests.test_entigram_self_improvement_model
+}
+
 /* Updated: 2026-05-20 Headless Antigravity engine execution via stdin piping support added */
+/* Updated: 2026-06-04 Entigram self-improvement loop modeled with expectations, evidence, evaluations, proposals, and lessons */
+/* Updated: 2026-06-04 Commissioner companion features: Entigram_Delivery_Snapshot, Blocked lifecycle, proof_capabilities, improvement proposals */
+/* Updated: 2026-06-04 Artifact-centered delivery snapshots for source-control-neutral workspaces */
+/* Updated: 2026-06-04 Delivery drift status modeled as a read-only recommission signal */

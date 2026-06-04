@@ -1,6 +1,10 @@
-from typing import List, Dict
-from entigram.schema_compiler.parser import SchemaEntity, SchemaRelationship
+from __future__ import annotations
+
+from typing import List, Dict, TYPE_CHECKING
 from datetime import datetime
+
+if TYPE_CHECKING:
+    from entigram.schema_compiler.parser import SchemaEntity, SchemaRelationship
 
 class OntologyCompiler:
     def __init__(self, entities: Dict[str, SchemaEntity], relationships: List[SchemaRelationship]):
