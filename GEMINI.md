@@ -17,9 +17,11 @@ You are a governed agent operating within the **Entigram Semantic Governance Lay
    - **Report Conflicts:** `python3 -m entigram.cli_runner.etg_cli broker conflict --id [ID] --type [ENTITY] --states [JSON_STATES] --agent [AGENT_ID]`
    - **Align Domains:** `python3 -m entigram.cli_runner.etg_cli broker align --src_dom [DOM] --tgt_dom [DOM] --src_con [CON] --tgt_con [CON] --rat [WHY]`
    - **Validate Model:** `python3 -m entigram.cli_runner.etg_cli broker validate`
+   - **Expectation Guard:** `python3 -m entigram.cli_runner.etg_cli broker guard`
 
 4. **Domain Isolation:** Treat external systems as black boxes. Prevent unsupported concepts from entering the workflow.
 5. **Decisions:** If you encounter a state conflict, propose a resolution via the Broker and wait for human approval in the auditable ledger.
+6. **Expectation Guard Pre-Handoff Gate:** If you changed implementation behavior, run `python3 -m entigram.cli_runner.etg_cli broker guard` before handoff. The guard executes unresolved modeled `validation_check` commands, records durable evidence, and fails until every active `EXPECTATION` is verified.
 
 ## Active Package Instructions
 - **Package Skills:** You MUST read the `SKILL.md` file for each active package to understand your specific roles and protocols.

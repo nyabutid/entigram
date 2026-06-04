@@ -20,6 +20,7 @@ Enterprise agent adoption fails when agents lack trustworthy domain context and 
 - **Closed-World Reasoning:** Automatically reject or quarantine unknown entities, attributes, and relationships.
 - **Verified Semantic Alignments:** Enable cross-domain data federation using approved mappings instead of fuzzy LLM guesses.
 - **Deterministic Conflict Handling:** Transform contradictory agent states into auditable ledger entries for human or policy-driven resolution.
+- **Expectation Guard:** Convert modeled expectations, implementation rules, and validation checks into a runnable pre-handoff agent gate.
 - **Agent Hydration:** Boot agents with exact project state, schemas, alignments, and settled decisions.
 - **Auditability:** Store every alignment and decision in a local SQLite ledger for full provenance and governance.
 
@@ -45,6 +46,11 @@ ATTRIBUTES:
 Align your agent's state vector with your local domain models:
 ```bash
 python3 -m entigram.cli_runner.etg_cli agent --engine Antigravity
+```
+
+Before handoff, verify modeled expectations and record evidence:
+```bash
+python3 -m entigram.cli_runner.etg_cli broker guard
 ```
 
 ## 🏗️ How it Fits
