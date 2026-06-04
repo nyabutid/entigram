@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0](https://github.com/nyabutid/entigram/compare/v0.1.0...v0.2.0) (2026-06-04)
+
+
+### Features
+
+* add modern Entigram logo assets ([dab8f99](https://github.com/nyabutid/entigram/commit/dab8f9925a69418c849d7235aaf249e301cc6897))
+* add modern Entigram logo assets ([43daa34](https://github.com/nyabutid/entigram/commit/43daa349b56fc7452aebe8311643ce987280dd13))
+* add Ollama launch option selection ([3853b95](https://github.com/nyabutid/entigram/commit/3853b95cef8ecf0d2c1a0b23d21318b9eb7c7c83))
+* close indispensability gap — learnings, trust score, E2T mapping, session proposals ([3203725](https://github.com/nyabutid/entigram/commit/3203725d6f4d797fa490122c0c945e74c7c04df3))
+* commissioner companion features — evidence ledger, delivery snapshots, improvement proposals, Blocked state, CLI deliver/resolve/improve ([5eb7447](https://github.com/nyabutid/entigram/commit/5eb7447800e52ad944608c96b9db5cb777cb4a6a))
+
+
+### Documentation
+
+* add workspace alignment check to agent initialization step ([3e6204f](https://github.com/nyabutid/entigram/commit/3e6204f6f0783cf145482dad107b10edfe4a627d))
+
 ## 0.1.0 (2026-06-03)
 
 
