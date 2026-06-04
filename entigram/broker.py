@@ -1,9 +1,11 @@
 import os
 import json
 import sqlite3
+import hashlib
+import mimetypes
 from itertools import combinations
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from .sqlite_ledger.manager import LedgerManager
 from datetime import datetime
 from .governance.warden import Warden
@@ -13,7 +15,7 @@ class EntigramBroker:
     The semantic governance broker that validates edge-agent state,
     records conflicts, and manages verified cross-domain alignments.
     """
-    def __init__(self, target_dir: str, ledger: LedgerManager = None):
+    def __init__(self, target_dir: str, ledger: LedgerManager = None, seed_synonyms: bool = True):
         self.target_dir = Path(target_dir).expanduser().resolve()
         self.etg_dir = self.target_dir / ".etg"
         self.ledger_path = self.etg_dir / "entigram_state.db"
@@ -22,7 +24,8 @@ class EntigramBroker:
         self._packages_cache = None
         
         # Seed initial synonyms if table is empty (Phase 3 Scalability)
-        self._seed_synonyms()
+        if seed_synonyms:
+            self._seed_synonyms()
 
     def _seed_synonyms(self):
         """Seeds the ledger with default synonyms if empty."""
@@ -153,35 +156,37 @@ class EntigramBroker:
     def validate_model(self) -> Dict[str, Any]:
         """
         Performs a 'Semantic Governance' check on the logical models using the SchemaLinter.
-        Also runs MVD (Minimum Viable Domain) semantic validation.
-        Automatically updates the corresponding .ttl ontology.
+        Also runs MVD (Minimum Viable Domain) semantic validation and
+        expectation-to-test mapping: warns when validation_check paths cannot be found.
         """
         from .schema_compiler.linter import SchemaLinter
         from .governance.viability import MVDValidator
-        
+        from .governance.commissioner import Commissioner
+        import os
+
         schema_path = self.target_dir / "schema.lds"
         if not schema_path.exists():
             schema_path = self.target_dir / "draft_schema.lds"
-        
+
         if not schema_path.exists():
             return {"valid": False, "error": "Missing schema.lds or draft_schema.lds"}
-        
+
         try:
             schema_text = schema_path.read_text()
-            
+
             # 1. Structural Linting
             linter = SchemaLinter(schema_text)
             errors = linter.lint()
-            
+
             # 2. Semantic MVD Validation
             mvd_validator = MVDValidator(schema_text)
             mvd_issues = mvd_validator.validate()
-            
+
             all_issues = errors + mvd_issues
-            
+
             # Filter for hard errors that block compilation
             critical_errors = [i for i in all_issues if i.get('severity') == 'ERROR' or 'code' not in i]
-            
+
             if critical_errors:
                 return {
                     "valid": False,
@@ -189,18 +194,518 @@ class EntigramBroker:
                     "all_errors": all_issues
                 }
 
+            # 3. Expectation-to-Test Mapping: warn on unreachable validation_check paths
+            commissioner = Commissioner.from_workspace(str(self.target_dir))
+            expectation_warnings = []
+            for exp in commissioner.expectations:
+                check = (exp.validation_check or "").strip()
+                if not check:
+                    expectation_warnings.append({
+                        "severity": "WARN",
+                        "code": "E2T_NO_CHECK",
+                        "expectation": exp.name,
+                        "message": f"Expectation '{exp.name}' has no validation_check — handoff proof cannot be automated.",
+                    })
+                    continue
+                # Detect file-based checks (path::test or path only, not shell commands)
+                check_file = check.split("::")[0].strip()
+                is_likely_file = (
+                    check_file.endswith(".py")
+                    or check_file.startswith("tests/")
+                    or check_file.startswith("test_")
+                )
+                if is_likely_file:
+                    abs_check = self.target_dir / check_file
+                    if not abs_check.exists():
+                        expectation_warnings.append({
+                            "severity": "WARN",
+                            "code": "E2T_MISSING_FILE",
+                            "expectation": exp.name,
+                            "validation_check": check,
+                            "message": (
+                                f"Expectation '{exp.name}': validation_check path "
+                                f"'{check_file}' does not exist — run will always fail."
+                            ),
+                        })
+
             # If no critical errors, model is 'valid' but might have warnings
             entities, rels = linter.parser.parse()
+            all_warnings = [i for i in mvd_issues if i.get('severity') != 'ERROR'] + expectation_warnings
             return {
-                "valid": True, 
-                "entity_count": len(entities), 
+                "valid": True,
+                "entity_count": len(entities),
                 "relationship_count": len(rels),
-                "warnings": [i for i in mvd_issues if i.get('severity') != 'ERROR']
+                "warnings": all_warnings,
+                "expectation_warnings": expectation_warnings,
             }
         except Exception as e:
             import traceback
             print(f"validate_model raised unexpectedly:\n{traceback.format_exc()}")
             return {"valid": False, "error": str(e)}
+
+    def commission(
+        self,
+        proofs: List[str] = None,
+        blocked_checks: List[str] = None,
+        agent_id: Optional[str] = None,
+        expectation_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Runs the Commissioner pre-handoff checklist for modeled expectations.
+        Automatically writes delivery evidence to the ledger when all pass.
+        """
+        from .governance.commissioner import Commissioner
+
+        commissioner = Commissioner.from_workspace(
+            str(self.target_dir), ledger=self.ledger
+        )
+        return commissioner.build_checklist(
+            proofs=proofs,
+            blocked_checks=blocked_checks,
+            agent_id=agent_id,
+            expectation_name=expectation_name,
+        )
+
+    def format_commission(self, checklist: Dict[str, Any]) -> str:
+        from .governance.commissioner import Commissioner
+
+        return Commissioner("").format_checklist(checklist)
+
+    def _artifact_path_for_storage(self, path: Path) -> str:
+        try:
+            return path.resolve().relative_to(self.target_dir).as_posix()
+        except ValueError:
+            return str(path.resolve())
+
+    def _capture_artifact(self, artifact_path: str, role: str) -> Dict[str, Any]:
+        path = Path(artifact_path).expanduser()
+        if not path.is_absolute():
+            path = self.target_dir / path
+        if not path.exists() or not path.is_file():
+            return {"path": artifact_path, "artifact_role": role, "missing": True}
+
+        data = path.read_bytes()
+        content_type = mimetypes.guess_type(path.name)[0]
+        return {
+            "path": self._artifact_path_for_storage(path),
+            "artifact_role": role,
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "size_bytes": len(data),
+            "content_type": content_type,
+            "source_ref": self._artifact_path_for_storage(path),
+        }
+
+    def _default_delivery_artifacts(self) -> List[Tuple[str, str]]:
+        return [
+            ("schema.lds", "schema_contract"),
+            ("schema.ttl", "ontology_contract"),
+            ("draft_schema.lds", "draft_schema_contract"),
+            ("draft_schema.ttl", "draft_ontology_contract"),
+            ("ontology/schema.ttl", "ontology_contract"),
+            (".etg/entigram.yaml", "workspace_manifest"),
+        ]
+
+    def _record_delivery_artifacts(
+        self,
+        artifact_paths: Optional[List[str]] = None,
+        artifact_role: str = "delivery_artifact",
+    ) -> Tuple[List[int], List[str]]:
+        artifact_ids: List[int] = []
+        missing_artifacts: List[str] = []
+        seen = set()
+
+        candidates: List[Tuple[str, str, bool]] = [
+            (path, role, False) for path, role in self._default_delivery_artifacts()
+        ]
+        candidates.extend((path, artifact_role, True) for path in (artifact_paths or []))
+
+        for artifact_path, role, required in candidates:
+            captured = self._capture_artifact(artifact_path, role)
+            if captured.get("missing"):
+                if required:
+                    missing_artifacts.append(artifact_path)
+                continue
+
+            key = (captured["path"], captured["artifact_role"], captured["sha256"])
+            if key in seen:
+                continue
+            seen.add(key)
+
+            row_id = self.ledger.record_delivery_artifact(**captured)
+            if row_id is not None:
+                artifact_ids.append(row_id)
+
+        return artifact_ids, missing_artifacts
+
+    def _compute_trust_score(
+        self,
+        checklist: Dict[str, Any],
+        warden_ok: bool,
+        schema_hash: Optional[str],
+        proofs: Optional[List[str]],
+    ) -> Dict[str, Any]:
+        """
+        Computes a confidence score [0.0–1.0] for a delivery based on:
+        - All expectations passed (40 pts)
+        - Warden integrity (20 pts)
+        - Schema hash matches last snapshot (20 pts)
+        - Evidence exists in ledger for each passing expectation (20 pts)
+        """
+        score = 0.0
+        breakdown = {}
+
+        # 1. All commissioner expectations satisfied
+        if checklist.get("valid") and checklist.get("missing_proof_count", 1) == 0:
+            score += 0.40
+            breakdown["expectations_passed"] = 0.40
+        else:
+            breakdown["expectations_passed"] = 0.0
+
+        # 2. Warden integrity
+        if warden_ok:
+            score += 0.20
+            breakdown["warden_intact"] = 0.20
+        else:
+            breakdown["warden_intact"] = 0.0
+
+        # 3. Schema stability (hash matches last snapshot)
+        last_snap = self.ledger.get_latest_snapshot()
+        if last_snap and schema_hash and last_snap.get("schema_hash") == schema_hash:
+            score += 0.20
+            breakdown["schema_stable"] = 0.20
+        elif not last_snap:
+            # First delivery — no prior baseline; give benefit of the doubt
+            score += 0.10
+            breakdown["schema_stable"] = 0.10  # partial
+        else:
+            breakdown["schema_stable"] = 0.0
+
+        # 4. Ledger evidence for each passing expectation
+        passing_items = [i for i in checklist.get("items", []) if i["status"] == "passed"]
+        if passing_items:
+            covered = sum(
+                1 for item in passing_items
+                if self.ledger.get_delivery_evidence(
+                    expectation_name=item["name"], passed_only=True, limit=1
+                )
+            )
+            evidence_ratio = covered / len(passing_items)
+            evidence_score = round(evidence_ratio * 0.20, 4)
+            score += evidence_score
+            breakdown["ledger_evidence"] = evidence_score
+        else:
+            breakdown["ledger_evidence"] = 0.0
+
+        return {
+            "score": round(min(score, 1.0), 4),
+            "grade": (
+                "A" if score >= 0.90 else
+                "B" if score >= 0.75 else
+                "C" if score >= 0.60 else
+                "D" if score >= 0.40 else "F"
+            ),
+            "breakdown": breakdown,
+        }
+
+    def commission_and_record(
+        self,
+        proofs: List[str] = None,
+        blocked_checks: List[str] = None,
+        agent_id: Optional[str] = None,
+        expectation_name: Optional[str] = None,
+        artifact_paths: Optional[List[str]] = None,
+        artifact_role: str = "delivery_artifact",
+    ) -> Dict[str, Any]:
+        """
+        Runs commission and, if all pass, writes a delivery snapshot anchoring
+        the current schema state. This is the 'last known good' baseline.
+        Attaches a trust score to every delivery.
+        """
+        checklist = self.commission(
+            proofs=proofs,
+            blocked_checks=blocked_checks,
+            agent_id=agent_id,
+            expectation_name=expectation_name,
+        )
+
+        # Compute trust score even on failure so caller can see the gap
+        warden_ok = self.warden.verify_integrity()
+        warden_status = "intact" if warden_ok else "tampered"
+        schema_hash = None
+        schema_path = self.target_dir / "schema.lds"
+        if schema_path.exists():
+            schema_hash = hashlib.sha256(schema_path.read_bytes()).hexdigest()[:16]
+
+        checklist["trust_score"] = self._compute_trust_score(
+            checklist, warden_ok, schema_hash, proofs
+        )
+
+        if checklist["valid"]:
+            artifact_ids, missing_artifacts = self._record_delivery_artifacts(
+                artifact_paths=artifact_paths,
+                artifact_role=artifact_role,
+            )
+            if missing_artifacts:
+                checklist["valid"] = False
+                checklist["artifact_errors"] = [
+                    f"Missing artifact: {path}" for path in missing_artifacts
+                ]
+                return checklist
+
+            snapshot_id = f"delivery-{datetime.now().strftime('%Y%m%dT%H%M%S')}"
+            if agent_id:
+                snapshot_id += f"-{agent_id}"
+
+            self.ledger.record_delivery_snapshot(
+                snapshot_id=snapshot_id,
+                expectation_count=checklist["expectation_count"],
+                missing_proof_count=0,
+                schema_hash=schema_hash,
+                agent_id=agent_id,
+                warden_status=warden_status,
+                evidence_ids=checklist.get("evidence_ids", []),
+                artifact_ids=artifact_ids,
+                metadata={
+                    "proofs_provided": len(proofs) if proofs else 0,
+                    "blocked_checks": blocked_checks or [],
+                    "expectation_name": expectation_name,
+                    "artifact_count": len(artifact_ids),
+                    "trust_score": checklist["trust_score"]["score"],
+                },
+            )
+            checklist["snapshot_id"] = snapshot_id
+            checklist["artifact_ids"] = artifact_ids
+
+        return checklist
+
+    def delivery_status(
+        self,
+        artifact_paths: Optional[List[str]] = None,
+        artifact_role: str = "delivery_artifact",
+    ) -> Dict[str, Any]:
+        """
+        Compares the current workspace against the latest delivery snapshot.
+        This is source-control-neutral drift detection over modeled expectations,
+        Warden integrity, and anchored local artifacts.
+        """
+        snapshot = self.ledger.get_latest_snapshot()
+        if not snapshot:
+            return {
+                "valid": False,
+                "needs_recommission": True,
+                "status": "no_snapshot",
+                "snapshot": None,
+                "artifact_changes": [],
+                "unanchored_artifacts": [],
+                "recommendations": [
+                    "Run `etg broker deliver --proof ...` after proof is available.",
+                ],
+            }
+
+        from .governance.commissioner import Commissioner
+
+        commissioner = Commissioner.from_workspace(
+            str(self.target_dir), ledger=self.ledger
+        )
+        checklist = commissioner.build_checklist(persist_evidence=False)
+        warden_ok = self.warden.verify_integrity()
+        warden_status = "intact" if warden_ok else "tampered"
+        current_schema_hash = None
+        schema_path = self.target_dir / "schema.lds"
+        if schema_path.exists():
+            current_schema_hash = hashlib.sha256(schema_path.read_bytes()).hexdigest()[:16]
+
+        artifact_changes = []
+        anchored_artifacts = self.ledger.get_delivery_artifacts_by_ids(
+            snapshot.get("artifact_ids", [])
+        )
+        anchored_keys = set()
+
+        for artifact in anchored_artifacts:
+            path = artifact.get("path")
+            role = artifact.get("artifact_role") or "delivery_artifact"
+            anchored_keys.add((path, role))
+            current = self._capture_artifact(path, role)
+            if current.get("missing"):
+                artifact_changes.append({
+                    "path": path,
+                    "artifact_role": role,
+                    "status": "missing",
+                    "previous_sha256": artifact.get("sha256"),
+                    "current_sha256": None,
+                })
+            elif current.get("sha256") != artifact.get("sha256"):
+                artifact_changes.append({
+                    "path": path,
+                    "artifact_role": role,
+                    "status": "changed",
+                    "previous_sha256": artifact.get("sha256"),
+                    "current_sha256": current.get("sha256"),
+                })
+
+        missing_artifact_records = [
+            artifact_id for artifact_id in snapshot.get("artifact_ids", [])
+            if artifact_id not in {artifact["id"] for artifact in anchored_artifacts}
+        ]
+        for artifact_id in missing_artifact_records:
+            artifact_changes.append({
+                "path": None,
+                "artifact_role": None,
+                "status": "missing_record",
+                "artifact_id": artifact_id,
+            })
+
+        unanchored_artifacts = []
+        for artifact_path in artifact_paths or []:
+            current = self._capture_artifact(artifact_path, artifact_role)
+            if current.get("missing"):
+                unanchored_artifacts.append({
+                    "path": artifact_path,
+                    "artifact_role": artifact_role,
+                    "status": "missing",
+                })
+                continue
+            key = (current["path"], current["artifact_role"])
+            if key not in anchored_keys:
+                unanchored_artifacts.append({
+                    "path": current["path"],
+                    "artifact_role": current["artifact_role"],
+                    "status": "unanchored",
+                    "sha256": current["sha256"],
+                })
+
+        expectation_count_changed = (
+            checklist.get("expectation_count") != snapshot.get("expectation_count")
+        )
+        schema_changed = (
+            bool(snapshot.get("schema_hash"))
+            and current_schema_hash != snapshot.get("schema_hash")
+        )
+        needs_recommission = any([
+            not checklist.get("valid", False),
+            warden_status != snapshot.get("warden_status"),
+            warden_status != "intact",
+            expectation_count_changed,
+            schema_changed,
+            bool(artifact_changes),
+            bool(unanchored_artifacts),
+        ])
+
+        recommendations = []
+        if not checklist.get("valid", False):
+            recommendations.append("Resolve missing or blocked expectation proof.")
+        if warden_status != "intact":
+            recommendations.append("Inspect schema contract integrity before handoff.")
+        if expectation_count_changed:
+            recommendations.append("Recommission because modeled expectations changed.")
+        if schema_changed:
+            recommendations.append("Recommission because the schema contract hash changed.")
+        if artifact_changes:
+            recommendations.append("Recommission because anchored artifacts drifted.")
+        if unanchored_artifacts:
+            recommendations.append("Include new local artifacts with `etg broker deliver --artifact PATH`.")
+        if not recommendations:
+            recommendations.append("No recommission needed; latest delivery snapshot still matches.")
+
+        return {
+            "valid": not needs_recommission,
+            "needs_recommission": needs_recommission,
+            "status": "needs_recommission" if needs_recommission else "current",
+            "snapshot": snapshot,
+            "warden_status": warden_status,
+            "current_schema_hash": current_schema_hash,
+            "expectation_count": checklist.get("expectation_count", 0),
+            "missing_proof_count": checklist.get("missing_proof_count", 0),
+            "blocked_count": checklist.get("blocked_count", 0),
+            "artifact_count": len(anchored_artifacts),
+            "artifact_changes": artifact_changes,
+            "unanchored_artifacts": unanchored_artifacts,
+            "recommendations": recommendations,
+        }
+
+    def format_delivery_status(self, status: Dict[str, Any]) -> str:
+        if status.get("status") == "no_snapshot":
+            return "\n".join([
+                "Delivery status: no delivery snapshot found.",
+                "Recommendation: run `etg broker deliver --proof ...` after proof is available.",
+            ])
+
+        snapshot = status.get("snapshot") or {}
+        lines = [
+            "Delivery status: current"
+            if status.get("valid")
+            else "Delivery status: recommission required",
+            f"Snapshot: {snapshot.get('snapshot_id', 'unknown')}",
+            f"Warden: {status.get('warden_status', 'unknown')}",
+            (
+                "Expectations: "
+                f"{status.get('expectation_count', 0)} modeled, "
+                f"{status.get('missing_proof_count', 0)} missing proof, "
+                f"{status.get('blocked_count', 0)} blocked"
+            ),
+            (
+                "Artifacts: "
+                f"{status.get('artifact_count', 0)} anchored, "
+                f"{len(status.get('artifact_changes', []))} drifted, "
+                f"{len(status.get('unanchored_artifacts', []))} unanchored"
+            ),
+        ]
+
+        for change in status.get("artifact_changes", []):
+            path = change.get("path") or f"artifact_id={change.get('artifact_id')}"
+            lines.append(f"  {change.get('status')}: {path}")
+        for artifact in status.get("unanchored_artifacts", []):
+            lines.append(f"  {artifact.get('status')}: {artifact.get('path')}")
+
+        lines.append("Recommendations:")
+        lines.extend(f"  - {item}" for item in status.get("recommendations", []))
+        return "\n".join(lines)
+
+    def record_improvement_proposal(
+        self,
+        title: str,
+        affected_model: str,
+        proposed_change: Dict[str, Any],
+        rationale: str,
+        *,
+        expected_benefit: Optional[str] = None,
+        created_by: Optional[str] = None,
+        lifecycle_status: str = "Proposed",
+    ) -> Optional[int]:
+        """
+        Records an agent-discovered improvement proposal to the durable ledger.
+        Proposals move through: Proposed -> Reviewed -> Implemented -> Verified.
+        """
+        return self.ledger.record_improvement_proposal(
+            title=title,
+            affected_model=affected_model,
+            proposed_change=proposed_change,
+            rationale=rationale,
+            expected_benefit=expected_benefit,
+            created_by=created_by,
+            lifecycle_status=lifecycle_status,
+        )
+
+    def record_lesson(
+        self,
+        lesson: str,
+        *,
+        source_task: Optional[str] = None,
+        reusable_rule: Optional[str] = None,
+        confidence: float = 1.0,
+        agent_id: Optional[str] = None,
+    ) -> Optional[int]:
+        """
+        Persists a reusable lesson derived from a delivery session.
+        Lessons accumulate as institutional memory across all agents.
+        """
+        return self.ledger.record_lesson(
+            lesson=lesson,
+            source_task=source_task,
+            reusable_rule=reusable_rule,
+            confidence=confidence,
+            agent_id=agent_id,
+        )
 
     def authorize_alignment(self, source_domain: str, target_domain: str, source_concept: str, target_concept: str, confidence: float, rationale: str, _defer_sync: bool = False):
         """

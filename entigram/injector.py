@@ -69,10 +69,12 @@ You are an edge-agent operating within a Entigram Federated Architecture.
    - **Report Conflicts:** `etg broker conflict --id [ID] --type [ENTITY] --states [JSON_STATES] --agent [AGENT_ID]`
    - **Align Domains:** `etg broker align --src_dom [DOM] --tgt_dom [DOM] --src_con [CON] --tgt_con [CON] --rat [WHY]`
    - **Validate Model:** `etg broker validate`
+   - **Commission Handoff:** `etg broker commission --proof [VALIDATION_EVIDENCE]`
 
 4. **Domain Isolation:** Treat external systems as black boxes.
 5. **Schema Contract Enforcement (Execution Mode):** Once a build is finalized, the `schema.lds` and `schema.ttl` files represent the immutable schema contracts of this workspace. You are forbidden from attempting to rewrite or modify these files during data execution or orchestration. Any attempt to drift from the established schema will trigger a `SCHEMA_GUARD_HALT`.
 6. **Initialization Step:** As your first action, read the project manifest and the local `schema.lds` to synchronize your mental model with the current authoritative state.
+7. **Commissioner Pre-Handoff Gate:** If you changed implementation behavior, run `etg broker commission` and provide proof for each modeled `EXPECTATION` before handoff.
 
 ## Active Package Instructions
 """
