@@ -6,6 +6,14 @@
 
 * add out-of-the-box expectation guard for pre-handoff agent verification
 
+## [0.3.0](https://github.com/nyabutid/entigram/compare/v0.2.2...v0.3.0) (2026-06-04)
+
+
+### Features
+
+* add expectation guard for pre-handoff agent verification ([562dd72](https://github.com/nyabutid/entigram/commit/562dd72107d49b13f51d951cbaa75615222e2ded))
+* out-of-the-box expectation guard for pre-handoff agent verification ([10d2471](https://github.com/nyabutid/entigram/commit/10d24712d5b79734a0f9205ea8fd6d9b30bde108))
+
 ## [0.2.2](https://github.com/nyabutid/entigram/compare/v0.2.1...v0.2.2) (2026-06-04)
 
 

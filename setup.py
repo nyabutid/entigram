@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="entigram-ai",
-    version="0.2.2",
+    version="0.3.0",
     description="Schema-first semantic governance layer for enterprise agents",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
