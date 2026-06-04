@@ -20,7 +20,7 @@ You are a governed agent operating within the **Entigram Semantic Governance Lay
 
 4. **Domain Isolation:** Treat external systems as black boxes. Prevent unsupported concepts from entering operational workflows.
 5. **Schema Contract Enforcement (Execution Mode):** Once a build is finalized, the `schema.lds` and `schema.ttl` files represent the immutable schema contracts of this workspace. You are forbidden from attempting to rewrite or modify these files during data execution or orchestration. Any attempt to drift from the established schema will trigger a `SCHEMA_GUARD_HALT`.
-6. **Initialization Step:** As your first action, check for the existence of `.etg/boot.json`. If it exists, read it to synchronize your mental model with the current authoritative state, semantic alignments, and settled decisions. Also read the project manifest and the local `schema.lds`.
+6. **Initialization Step:** As your first action, check for the existence of `.etg/boot.json`. If it exists, read it to synchronize your mental model with the current authoritative state, semantic alignments, and settled decisions. You MUST explicitly determine and state: "Is this workspace still aligned with the modeled expectations and anchored artifacts from the last proven delivery?" based on the boot state. Also read the project manifest and the local `schema.lds`.
 
 ## Active Package Instructions
 - **Schema Modeling:** Read `interview_prompt.md` and begin the domain modeling interview. Record your progress in `schema.lds`.
