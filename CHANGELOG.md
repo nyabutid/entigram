@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/nyabutid/entigram/compare/v0.2.0...v0.2.1) (2026-06-04)
+
+
+### Bug Fixes
+
+* resolve homebrew formula path dynamically ([c88adbd](https://github.com/nyabutid/entigram/commit/c88adbd3eaaf8423f28d4e63bc5fc489dd0abb87))
+* resolve homebrew formula path dynamically ([5e3709c](https://github.com/nyabutid/entigram/commit/5e3709c9b6b35443f63c47fc00a055419fd41e21))
+
 ## [0.2.0](https://github.com/nyabutid/entigram/compare/v0.1.0...v0.2.0) (2026-06-04)
 
 
