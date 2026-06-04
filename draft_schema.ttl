@@ -6,7 +6,7 @@
 
 mk:Ontology a owl:Ontology ;
     rdfs:label "Entigram Generated Ontology" ;
-    mk:generatedAt "2026-06-04T14:09:49.905648" .
+    mk:generatedAt "2026-06-04T18:42:04.697189" .
 
 mk:Entigram_Project a owl:Class ;
     rdfs:label "Entigram_Project" .
@@ -53,8 +53,8 @@ mk:Entigram_Delivery_Evaluation a owl:Class ;
 mk:Entigram_Improvement_Proposal a owl:Class ;
     rdfs:label "Entigram_Improvement_Proposal" .
 
-mk:Entigram_Learning a owl:Class ;
-    rdfs:label "Entigram_Learning" .
+mk:Entigram_Lesson a owl:Class ;
+    rdfs:label "Entigram_Lesson" .
 
 mk:Entigram_Grounding_Rule a owl:Class ;
     rdfs:label "Entigram_Grounding_Rule" .
@@ -639,38 +639,38 @@ mk:Entigram_Improvement_Proposal_created_at a owl:DatatypeProperty ;
     rdfs:range xsd:dateTime ;
     rdfs:label "created_at" .
 
-mk:Entigram_Learning_id a owl:DatatypeProperty ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:Entigram_Lesson_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range xsd:string ;
     rdfs:label "id" .
 
-mk:Entigram_Learning_source_task a owl:DatatypeProperty ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:Entigram_Lesson_source_task a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range xsd:string ;
     rdfs:label "source_task" .
 
-mk:Entigram_Learning_lesson a owl:DatatypeProperty ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:Entigram_Lesson_lesson a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range xsd:string ;
     rdfs:label "lesson" .
 
-mk:Entigram_Learning_reusable_rule a owl:DatatypeProperty ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:Entigram_Lesson_reusable_rule a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range xsd:string ;
     rdfs:label "reusable_rule" .
 
-mk:Entigram_Learning_confidence a owl:DatatypeProperty ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:Entigram_Lesson_confidence a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range xsd:string ;
     rdfs:label "confidence" .
 
-mk:Entigram_Learning_lifecycle_status a owl:DatatypeProperty ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:Entigram_Lesson_lifecycle_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range xsd:string ;
     rdfs:label "lifecycle_status" .
 
-mk:Entigram_Learning_observed_at a owl:DatatypeProperty ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:Entigram_Lesson_observed_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range xsd:dateTime ;
     rdfs:label "observed_at" .
 
@@ -1298,24 +1298,24 @@ mk:Entigram_Expectation rdfs:subClassOf [
         owl:minCardinality 1
     ] .
 
-mk:relates_Entigram_Project_to_Entigram_Learning a owl:ObjectProperty ;
+mk:relates_Entigram_Project_to_Entigram_Lesson a owl:ObjectProperty ;
     rdfs:domain mk:Entigram_Project ;
-    rdfs:range mk:Entigram_Learning ;
+    rdfs:range mk:Entigram_Lesson ;
     rdfs:label "relates" .
 
-mk:relates_Entigram_Learning_to_Entigram_Project a owl:ObjectProperty ;
-    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Learning ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:relates_Entigram_Lesson_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Lesson ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range mk:Entigram_Project ;
     rdfs:label "inverse_relates" .
 
-mk:Entigram_Learning rdfs:subClassOf [
+mk:Entigram_Lesson rdfs:subClassOf [
         a owl:Restriction ;
-        owl:onProperty mk:relates_Entigram_Learning_to_Entigram_Project ;
+        owl:onProperty mk:relates_Entigram_Lesson_to_Entigram_Project ;
         owl:maxCardinality 1
     ] , [
         a owl:Restriction ;
-        owl:onProperty mk:relates_Entigram_Learning_to_Entigram_Project ;
+        owl:onProperty mk:relates_Entigram_Lesson_to_Entigram_Project ;
         owl:minCardinality 1
     ] .
 
@@ -1803,4 +1803,3 @@ mk:Product rdfs:subClassOf [
         owl:onProperty mk:relates_Product_to_Supplier ;
         owl:minCardinality 1
     ] .
-

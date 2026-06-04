@@ -358,8 +358,16 @@ EXPECTATION: Agent Delivery Proof {
   proof: python -m unittest tests.test_entigram_self_improvement_model
 }
 
+EXPECTATION: Out-of-the-box Expectation Guard {
+  developer_expectation: Entigram should ship an out-of-the-box expectation guard that turns modeled rules, implementation rules, and validation checks into pre-handoff agent verification.
+  implementation_rule: The broker must expose an agent-facing guard that executes unresolved validation_check commands, records durable delivery evidence, and returns a single pass/fail handoff verdict.
+  validation_check: python -m unittest tests.test_commissioner
+  proof: python -m unittest tests.test_commissioner
+}
+
 /* Updated: 2026-05-20 Headless Antigravity engine execution via stdin piping support added */
 /* Updated: 2026-06-04 Entigram self-improvement loop modeled with expectations, evidence, evaluations, proposals, and lessons */
 /* Updated: 2026-06-04 Commissioner companion features: Entigram_Delivery_Snapshot, Blocked lifecycle, proof_capabilities, improvement proposals */
 /* Updated: 2026-06-04 Artifact-centered delivery snapshots for source-control-neutral workspaces */
 /* Updated: 2026-06-04 Delivery drift status modeled as a read-only recommission signal */
+/* Updated: 2026-06-04 Out-of-the-box expectation guard added for agent pre-handoff verification */
