@@ -326,6 +326,42 @@ def main():
         help="Mark a validation_check as Blocked (infra failure, not a proof gap)",
     )
 
+    guard_parser = broker_subparsers.add_parser(
+        "guard",
+        aliases=["verify"],
+        help="Run the out-of-the-box expectation guard before agent handoff",
+    )
+    guard_parser.add_argument(
+        "--expectation",
+        help="Filter to a specific expectation name",
+    )
+    guard_parser.add_argument(
+        "--proof",
+        action="append",
+        default=[],
+        help="Proof text or artifact reference",
+    )
+    guard_parser.add_argument(
+        "--blocked",
+        action="append",
+        default=[],
+        metavar="CHECK",
+        help="Mark a validation_check as Blocked",
+    )
+    guard_parser.add_argument(
+        "--no-run",
+        action="store_true",
+        help="Do not execute missing validation_check commands; only inspect recorded/provided proof",
+    )
+    guard_parser.add_argument(
+        "--timeout",
+        type=int,
+        default=120,
+        help="Seconds before a validation_check command times out",
+    )
+    guard_parser.add_argument("--agent", help="Agent ID to attribute evidence to")
+    guard_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
+
     deliver_parser = broker_subparsers.add_parser(
         "deliver",
         help="Run commissioner + write a delivery snapshot (deterministic handoff gate)",
@@ -976,6 +1012,21 @@ RELATIONSHIPS:
                 print(json.dumps(result, indent=2))
             else:
                 print(broker.format_commission(result))
+            if not result["valid"]:
+                sys.exit(1)
+        elif args.broker_command in ("guard", "verify"):
+            result = broker.expectation_guard(
+                proofs=getattr(args, "proof", []),
+                blocked_checks=getattr(args, "blocked", []),
+                agent_id=getattr(args, "agent", None),
+                expectation_name=getattr(args, "expectation", None),
+                run_validation_checks=not getattr(args, "no_run", False),
+                timeout=getattr(args, "timeout", 120),
+            )
+            if args.json_output:
+                print(json.dumps(result, indent=2))
+            else:
+                print(broker.format_expectation_guard(result))
             if not result["valid"]:
                 sys.exit(1)
         elif args.broker_command == "deliver":

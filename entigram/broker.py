@@ -271,6 +271,37 @@ class EntigramBroker:
 
         return Commissioner("").format_checklist(checklist)
 
+    def expectation_guard(
+        self,
+        proofs: List[str] = None,
+        blocked_checks: List[str] = None,
+        agent_id: Optional[str] = None,
+        expectation_name: Optional[str] = None,
+        run_validation_checks: bool = True,
+        timeout: int = 120,
+    ) -> Dict[str, Any]:
+        """
+        Runs the out-of-the-box expectation guard for agent pre-handoff
+        verification. Missing proofs are resolved by executing validation_check
+        commands and recording durable evidence.
+        """
+        from .governance.expectation_guard import ExpectationGuard
+
+        guard = ExpectationGuard(str(self.target_dir), ledger=self.ledger)
+        return guard.verify(
+            proofs=proofs,
+            blocked_checks=blocked_checks,
+            agent_id=agent_id,
+            expectation_name=expectation_name,
+            run_validation_checks=run_validation_checks,
+            timeout=timeout,
+        )
+
+    def format_expectation_guard(self, result: Dict[str, Any]) -> str:
+        from .governance.expectation_guard import ExpectationGuard
+
+        return ExpectationGuard(str(self.target_dir), ledger=self.ledger).format_result(result)
+
     def _artifact_path_for_storage(self, path: Path) -> str:
         try:
             return path.resolve().relative_to(self.target_dir).as_posix()
