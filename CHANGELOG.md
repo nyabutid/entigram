@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/nyabutid/entigram/compare/v0.2.1...v0.2.2) (2026-06-04)
+
+
+### Bug Fixes
+
+* broaden homebrew formula detection ([171671e](https://github.com/nyabutid/entigram/commit/171671e5e031d419b7c393209092edf4d8f59761))
+* broaden homebrew formula detection ([f4fede4](https://github.com/nyabutid/entigram/commit/f4fede43d4a8ca9de94ca659e67fff20cd399b41))
+
 ## [0.2.1](https://github.com/nyabutid/entigram/compare/v0.2.0...v0.2.1) (2026-06-04)
 
 
