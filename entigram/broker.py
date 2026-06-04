@@ -202,6 +202,102 @@ class EntigramBroker:
             print(f"validate_model raised unexpectedly:\n{traceback.format_exc()}")
             return {"valid": False, "error": str(e)}
 
+    def commission(
+        self,
+        proofs: List[str] = None,
+        blocked_checks: List[str] = None,
+        agent_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Runs the Commissioner pre-handoff checklist for modeled expectations.
+        Automatically writes delivery evidence to the ledger when all pass.
+        """
+        from .governance.commissioner import Commissioner
+
+        commissioner = Commissioner.from_workspace(
+            str(self.target_dir), ledger=self.ledger
+        )
+        return commissioner.build_checklist(
+            proofs=proofs, blocked_checks=blocked_checks, agent_id=agent_id
+        )
+
+    def format_commission(self, checklist: Dict[str, Any]) -> str:
+        from .governance.commissioner import Commissioner
+
+        return Commissioner("").format_checklist(checklist)
+
+    def commission_and_record(
+        self,
+        proofs: List[str] = None,
+        blocked_checks: List[str] = None,
+        agent_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Runs commission and, if all pass, writes a delivery snapshot anchoring
+        the current schema state. This is the 'last known good' baseline.
+        """
+        import hashlib
+
+        checklist = self.commission(
+            proofs=proofs, blocked_checks=blocked_checks, agent_id=agent_id
+        )
+
+        if checklist["valid"]:
+            # Compute schema hash for drift detection
+            schema_path = self.target_dir / "schema.lds"
+            schema_hash = None
+            if schema_path.exists():
+                schema_hash = hashlib.sha256(
+                    schema_path.read_bytes()
+                ).hexdigest()[:16]
+
+            # Warden status
+            warden_ok = self.warden.verify_integrity()
+            warden_status = "intact" if warden_ok else "tampered"
+
+            snapshot_id = f"delivery-{datetime.now().strftime('%Y%m%dT%H%M%S')}"
+            if agent_id:
+                snapshot_id += f"-{agent_id}"
+
+            self.ledger.record_delivery_snapshot(
+                snapshot_id=snapshot_id,
+                expectation_count=checklist["expectation_count"],
+                missing_proof_count=0,
+                schema_hash=schema_hash,
+                agent_id=agent_id,
+                warden_status=warden_status,
+                metadata={
+                    "proofs_provided": len(proofs) if proofs else 0,
+                    "blocked_checks": blocked_checks or [],
+                },
+            )
+            checklist["snapshot_id"] = snapshot_id
+
+        return checklist
+
+    def record_improvement_proposal(
+        self,
+        title: str,
+        affected_model: str,
+        proposed_change: Dict[str, Any],
+        rationale: str,
+        *,
+        expected_benefit: Optional[str] = None,
+        created_by: Optional[str] = None,
+    ) -> Optional[int]:
+        """
+        Records an agent-discovered improvement proposal to the durable ledger.
+        Proposals move through: Proposed -> Reviewed -> Implemented -> Verified.
+        """
+        return self.ledger.record_improvement_proposal(
+            title=title,
+            affected_model=affected_model,
+            proposed_change=proposed_change,
+            rationale=rationale,
+            expected_benefit=expected_benefit,
+            created_by=created_by,
+        )
+
     def authorize_alignment(self, source_domain: str, target_domain: str, source_concept: str, target_concept: str, confidence: float, rationale: str, _defer_sync: bool = False):
         """
         Authorizes a semantic alignment between two isolated domains.
