@@ -21,6 +21,7 @@ class TestCLIIntegration(unittest.TestCase):
         sys.stdout = self.old_stdout
 
     def run_cli(self, args):
+        sys.stdout = StringIO()
         with patch.object(sys, 'argv', ['etg'] + args):
             try:
                 main()
@@ -128,6 +129,20 @@ ATTRIBUTES:
         success, output = self.run_cli(['discover', '--db', db_path])
         self.assertTrue(success)
         self.assertEqual(output.strip(), "")
+
+    @patch('entigram.cli_runner.etg_cli.launch_ui')
+    def test_no_command_prints_help_without_launching_ui(self, mock_launch_ui):
+        success, output = self.run_cli([])
+        self.assertTrue(success)
+        self.assertIn("Entigram Headless Compiler CLI", output)
+        mock_launch_ui.assert_not_called()
+
+    @patch('entigram.cli_runner.etg_cli.importlib.util.find_spec', return_value=None)
+    def test_ui_command_reports_missing_streamlit(self, _mock_find_spec):
+        success, output = self.run_cli(['ui'])
+        self.assertFalse(success)
+        self.assertIn("Streamlit is not installed", output)
+        self.assertIn("pipx install entigram-ai", output)
 
 if __name__ == "__main__":
     unittest.main()

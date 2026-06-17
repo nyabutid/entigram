@@ -138,6 +138,11 @@ def get_hydration_vector(target_path: Path, compact: bool = False) -> str:
 def launch_ui(target_dir=None):
     """Launches the Streamlit UI dashboard."""
     import subprocess
+    if importlib.util.find_spec("streamlit") is None:
+        print("❌ Streamlit is not installed in this environment.")
+        print("Install the UI-enabled Python package to use the dashboard: pipx install entigram-ai")
+        return False
+
     ui_path = Path(__file__).parent.parent / "ui" / "app.py"
     print(f"🚀 Launching Entigram Visual Dashboard...")
     try:
@@ -153,10 +158,13 @@ def launch_ui(target_dir=None):
         
         # Invoke streamlit via the current python interpreter to ensure it works in venvs (like Brew)
         subprocess.run([sys.executable, "-m", "streamlit", "run", str(ui_path)], env=env, check=True)
+        return True
     except KeyboardInterrupt:
         print("\n👋 Dashboard stopped.")
+        return True
     except Exception as e:
         print(f"❌ Failed to launch dashboard: {e}")
+        return False
 
 def main():
     parser = argparse.ArgumentParser(description="Entigram Headless Compiler CLI")
@@ -496,7 +504,7 @@ def main():
     args = parser.parse_args()
 
     if not args.command:
-        launch_ui()
+        parser.print_help()
     elif hasattr(args, 'func'):
         args.func(args)
     elif args.command == "init":
@@ -708,7 +716,8 @@ def main():
             print(vector)
 
     elif args.command == "ui":
-        launch_ui(args.dir)
+        if not launch_ui(args.dir):
+            sys.exit(1)
 
     elif args.command == "agent":
         target_dir = args.dir
