@@ -6,6 +6,14 @@
 
 * add out-of-the-box expectation guard for pre-handoff agent verification
 
+## [1.3.2](https://github.com/nyabutid/entigram/compare/v1.3.1...v1.3.2) (2026-06-18)
+
+
+### Bug Fixes
+
+* model release PR governance rules ([4360c02](https://github.com/nyabutid/entigram/commit/4360c02ef375c9b49186bbd9aa574ce4f47626e7))
+* model release PR governance rules ([98bbbdd](https://github.com/nyabutid/entigram/commit/98bbbdd73a99ebb625592ebe64fd3ee4539dc1cb))
+
 ## [0.3.0](https://github.com/nyabutid/entigram/compare/v0.2.2...v0.3.0) (2026-06-04)
 
 
