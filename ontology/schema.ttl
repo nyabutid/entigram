@@ -6,7 +6,7 @@
 
 mk:Ontology a owl:Ontology ;
     rdfs:label "Entigram Generated Ontology" ;
-    mk:generatedAt "2026-06-04T14:09:49.904772" .
+    mk:generatedAt "2026-06-17T19:26:04.483971" .
 
 mk:Entigram_Project a owl:Class ;
     rdfs:label "Entigram_Project" .
@@ -53,8 +53,8 @@ mk:Entigram_Delivery_Evaluation a owl:Class ;
 mk:Entigram_Improvement_Proposal a owl:Class ;
     rdfs:label "Entigram_Improvement_Proposal" .
 
-mk:Entigram_Learning a owl:Class ;
-    rdfs:label "Entigram_Learning" .
+mk:Entigram_Lesson a owl:Class ;
+    rdfs:label "Entigram_Lesson" .
 
 mk:Entigram_Grounding_Rule a owl:Class ;
     rdfs:label "Entigram_Grounding_Rule" .
@@ -91,6 +91,15 @@ mk:Entigram_Artifact a owl:Class ;
 
 mk:Entigram_Delivery_Drift a owl:Class ;
     rdfs:label "Entigram_Delivery_Drift" .
+
+mk:Entigram_Release a owl:Class ;
+    rdfs:label "Entigram_Release" .
+
+mk:Entigram_Release_Channel a owl:Class ;
+    rdfs:label "Entigram_Release_Channel" .
+
+mk:Entigram_Release_Check a owl:Class ;
+    rdfs:label "Entigram_Release_Check" .
 
 mk:Warehouse a owl:Class ;
     rdfs:label "Warehouse" .
@@ -639,38 +648,38 @@ mk:Entigram_Improvement_Proposal_created_at a owl:DatatypeProperty ;
     rdfs:range xsd:dateTime ;
     rdfs:label "created_at" .
 
-mk:Entigram_Learning_id a owl:DatatypeProperty ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:Entigram_Lesson_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range xsd:string ;
     rdfs:label "id" .
 
-mk:Entigram_Learning_source_task a owl:DatatypeProperty ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:Entigram_Lesson_source_task a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range xsd:string ;
     rdfs:label "source_task" .
 
-mk:Entigram_Learning_lesson a owl:DatatypeProperty ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:Entigram_Lesson_lesson a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range xsd:string ;
     rdfs:label "lesson" .
 
-mk:Entigram_Learning_reusable_rule a owl:DatatypeProperty ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:Entigram_Lesson_reusable_rule a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range xsd:string ;
     rdfs:label "reusable_rule" .
 
-mk:Entigram_Learning_confidence a owl:DatatypeProperty ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:Entigram_Lesson_confidence a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range xsd:string ;
     rdfs:label "confidence" .
 
-mk:Entigram_Learning_lifecycle_status a owl:DatatypeProperty ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:Entigram_Lesson_lifecycle_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range xsd:string ;
     rdfs:label "lifecycle_status" .
 
-mk:Entigram_Learning_observed_at a owl:DatatypeProperty ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:Entigram_Lesson_observed_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range xsd:dateTime ;
     rdfs:label "observed_at" .
 
@@ -1034,6 +1043,146 @@ mk:Entigram_Delivery_Drift_observed_at a owl:DatatypeProperty ;
     rdfs:range xsd:dateTime ;
     rdfs:label "observed_at" .
 
+mk:Entigram_Release_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Release_version a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range xsd:string ;
+    rdfs:label "version" .
+
+mk:Entigram_Release_source_tag a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range xsd:string ;
+    rdfs:label "source_tag" .
+
+mk:Entigram_Release_release_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range xsd:string ;
+    rdfs:label "release_type" .
+
+mk:Entigram_Release_pypi_artifact a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range xsd:string ;
+    rdfs:label "pypi_artifact" .
+
+mk:Entigram_Release_pypi_sha256 a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range xsd:string ;
+    rdfs:label "pypi_sha256" .
+
+mk:Entigram_Release_homebrew_formula_ref a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range xsd:string ;
+    rdfs:label "homebrew_formula_ref" .
+
+mk:Entigram_Release_homebrew_sha256 a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range xsd:string ;
+    rdfs:label "homebrew_sha256" .
+
+mk:Entigram_Release_standard_packages_ref a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range xsd:string ;
+    rdfs:label "standard_packages_ref" .
+
+mk:Entigram_Release_website_ref a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range xsd:string ;
+    rdfs:label "website_ref" .
+
+mk:Entigram_Release_release_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range xsd:string ;
+    rdfs:label "release_status" .
+
+mk:Entigram_Release_created_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "created_at" .
+
+mk:Entigram_Release_released_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "released_at" .
+
+mk:Entigram_Release_Channel_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Channel ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Release_Channel_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Channel ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Entigram_Release_Channel_artifact_ref a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Channel ;
+    rdfs:range xsd:string ;
+    rdfs:label "artifact_ref" .
+
+mk:Entigram_Release_Channel_checksum a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Channel ;
+    rdfs:range xsd:string ;
+    rdfs:label "checksum" .
+
+mk:Entigram_Release_Channel_verification_command a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Channel ;
+    rdfs:range xsd:string ;
+    rdfs:label "verification_command" .
+
+mk:Entigram_Release_Channel_required a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Channel ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "required" .
+
+mk:Entigram_Release_Channel_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Channel ;
+    rdfs:range xsd:string ;
+    rdfs:label "status" .
+
+mk:Entigram_Release_Channel_rationale a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Channel ;
+    rdfs:range xsd:string ;
+    rdfs:label "rationale" .
+
+mk:Entigram_Release_Check_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Check ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Release_Check_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Check ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Entigram_Release_Check_command a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Check ;
+    rdfs:range xsd:string ;
+    rdfs:label "command" .
+
+mk:Entigram_Release_Check_expected_result a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Check ;
+    rdfs:range xsd:string ;
+    rdfs:label "expected_result" .
+
+mk:Entigram_Release_Check_evidence_ref a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Check ;
+    rdfs:range xsd:string ;
+    rdfs:label "evidence_ref" .
+
+mk:Entigram_Release_Check_passed a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Check ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "passed" .
+
+mk:Entigram_Release_Check_checked_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_Check ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "checked_at" .
+
 mk:Warehouse_id a owl:DatatypeProperty ;
     rdfs:domain mk:Warehouse ;
     rdfs:range xsd:string ;
@@ -1298,24 +1447,24 @@ mk:Entigram_Expectation rdfs:subClassOf [
         owl:minCardinality 1
     ] .
 
-mk:relates_Entigram_Project_to_Entigram_Learning a owl:ObjectProperty ;
+mk:relates_Entigram_Project_to_Entigram_Lesson a owl:ObjectProperty ;
     rdfs:domain mk:Entigram_Project ;
-    rdfs:range mk:Entigram_Learning ;
+    rdfs:range mk:Entigram_Lesson ;
     rdfs:label "relates" .
 
-mk:relates_Entigram_Learning_to_Entigram_Project a owl:ObjectProperty ;
-    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Learning ;
-    rdfs:domain mk:Entigram_Learning ;
+mk:relates_Entigram_Lesson_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Lesson ;
+    rdfs:domain mk:Entigram_Lesson ;
     rdfs:range mk:Entigram_Project ;
     rdfs:label "inverse_relates" .
 
-mk:Entigram_Learning rdfs:subClassOf [
+mk:Entigram_Lesson rdfs:subClassOf [
         a owl:Restriction ;
-        owl:onProperty mk:relates_Entigram_Learning_to_Entigram_Project ;
+        owl:onProperty mk:relates_Entigram_Lesson_to_Entigram_Project ;
         owl:maxCardinality 1
     ] , [
         a owl:Restriction ;
-        owl:onProperty mk:relates_Entigram_Learning_to_Entigram_Project ;
+        owl:onProperty mk:relates_Entigram_Lesson_to_Entigram_Project ;
         owl:minCardinality 1
     ] .
 
@@ -1655,6 +1804,86 @@ mk:Entigram_Delivery_Drift rdfs:subClassOf [
         owl:minCardinality 1
     ] .
 
+mk:relates_Entigram_Project_to_Entigram_Release a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Release ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Release_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Release ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Release rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Release_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Release_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Release_to_Entigram_Release_Channel a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range mk:Entigram_Release_Channel ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Release_Channel_to_Entigram_Release a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Release_to_Entigram_Release_Channel ;
+    rdfs:domain mk:Entigram_Release_Channel ;
+    rdfs:range mk:Entigram_Release ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Release_Channel rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Release_Channel_to_Entigram_Release ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Release_Channel_to_Entigram_Release ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Release_to_Entigram_Release_Check a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Release ;
+    rdfs:range mk:Entigram_Release_Check ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Release_Check_to_Entigram_Release a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Release_to_Entigram_Release_Check ;
+    rdfs:domain mk:Entigram_Release_Check ;
+    rdfs:range mk:Entigram_Release ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Release_Check rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Release_Check_to_Entigram_Release ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Release_Check_to_Entigram_Release ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Release_Check_to_Entigram_Delivery_Evidence a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Release_Check ;
+    rdfs:range mk:Entigram_Delivery_Evidence ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Delivery_Evidence_to_Entigram_Release_Check a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Release_Check_to_Entigram_Delivery_Evidence ;
+    rdfs:domain mk:Entigram_Delivery_Evidence ;
+    rdfs:range mk:Entigram_Release_Check ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Delivery_Evidence rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Delivery_Evidence_to_Entigram_Release_Check ;
+        owl:maxCardinality 1
+    ] .
+
 mk:relates_Idea_to_Partner_Organization a owl:ObjectProperty ;
     rdfs:domain mk:Idea ;
     rdfs:range mk:Partner_Organization ;
@@ -1803,4 +2032,3 @@ mk:Product rdfs:subClassOf [
         owl:onProperty mk:relates_Product_to_Supplier ;
         owl:minCardinality 1
     ] .
-

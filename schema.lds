@@ -278,6 +278,43 @@ ATTRIBUTES:
   - recommendation (String)
   - observed_at (DateTime)
 
+ENTITY: Entigram_Release
+ATTRIBUTES:
+  - .id (UUID)
+  - version (String, MUST, UNIQUE)
+  - source_tag (String, MUST)
+  - release_type (String) # patch, minor, major, prerelease
+  - pypi_artifact (String)
+  - pypi_sha256 (String)
+  - homebrew_formula_ref (String)
+  - homebrew_sha256 (String)
+  - standard_packages_ref (String)
+  - website_ref (String)
+  - release_status (String) # Planned, Built, Published, Verified, Failed, Rolled_Back
+  - created_at (DateTime)
+  - released_at (DateTime)
+
+ENTITY: Entigram_Release_Channel
+ATTRIBUTES:
+  - .id (UUID)
+  - name (String, MUST) # PyPI, Homebrew, StandardPackages, Website, GitHubRelease
+  - artifact_ref (String)
+  - checksum (String)
+  - verification_command (String)
+  - required (Boolean)
+  - status (String) # Pending, Published, Verified, Skipped, Failed
+  - rationale (Text)
+
+ENTITY: Entigram_Release_Check
+ATTRIBUTES:
+  - .id (UUID)
+  - name (String, MUST)
+  - command (String)
+  - expected_result (Text)
+  - evidence_ref (String)
+  - passed (Boolean)
+  - checked_at (DateTime)
+
 RELATIONSHIPS:
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Package
 - Entigram_Package (1) [MUST] --- [MAY] (MANY) Entigram_Agent
@@ -305,6 +342,10 @@ RELATIONSHIPS:
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Artifact
 - Entigram_Delivery_Snapshot (1) [MUST] --- [MAY] (MANY) Entigram_Artifact
 - Entigram_Delivery_Snapshot (1) [MUST] --- [MAY] (MANY) Entigram_Delivery_Drift
+- Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Release
+- Entigram_Release (1) [MUST] --- [MAY] (MANY) Entigram_Release_Channel
+- Entigram_Release (1) [MUST] --- [MAY] (MANY) Entigram_Release_Check
+- Entigram_Release_Check (1) [MAY] --- [MAY] (MANY) Entigram_Delivery_Evidence
 
 /* Phase 3 Macro Chain (Federated) */
 - Idea (1) --- (1) Partner_Organization [ALIGN: Idea.id == Partner_Organization.id]
@@ -365,9 +406,17 @@ EXPECTATION: Out-of-the-box Expectation Guard {
   proof: python -m unittest tests.test_commissioner
 }
 
+EXPECTATION: Release Orchestration {
+  developer_expectation: Entigram releases should publish coherent artifacts across PyPI, Homebrew, standard packages, GitHub releases, and website/docs without checksum drift.
+  implementation_rule: Every release must model the source tag, PyPI sdist checksum, Homebrew formula URL/checksum, standard packages state, website/docs state, and post-release smoke checks; skipped channels require an explicit rationale.
+  validation_check: python -m unittest tests.test_entigram_release_model
+  proof: python -m unittest tests.test_entigram_release_model
+}
+
 /* Updated: 2026-05-20 Headless Antigravity engine execution via stdin piping support added */
 /* Updated: 2026-06-04 Entigram self-improvement loop modeled with expectations, evidence, evaluations, proposals, and lessons */
 /* Updated: 2026-06-04 Commissioner companion features: Entigram_Delivery_Snapshot, Blocked lifecycle, proof_capabilities, improvement proposals */
 /* Updated: 2026-06-04 Artifact-centered delivery snapshots for source-control-neutral workspaces */
 /* Updated: 2026-06-04 Delivery drift status modeled as a read-only recommission signal */
 /* Updated: 2026-06-04 Out-of-the-box expectation guard added for agent pre-handoff verification */
+/* Updated: 2026-06-17 Release orchestration modeled for PyPI, Homebrew, standard packages, website/docs, and checksum verification */
