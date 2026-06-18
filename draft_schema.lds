@@ -315,6 +315,22 @@ ATTRIBUTES:
   - passed (Boolean)
   - checked_at (DateTime)
 
+ENTITY: Entigram_Release_PR_Rule
+ATTRIBUTES:
+  - .id (UUID)
+  - name (String, MUST, UNIQUE)
+  - conventional_commit_type (String) # feat, fix, chore, docs, refactor, test, ci
+  - title_pattern (String)
+  - merge_commit_pattern (String)
+  - release_please_required (Boolean)
+  - release_impact (String) # patch, minor, major, none
+  - manual_dispatch_allowed (Boolean)
+  - manual_dispatch_version_rule (Text)
+  - immutable_version_rule (Text)
+  - failure_mode (Text)
+  - validation_command (String)
+  - lifecycle_status (String) # Proposed, Active, Deprecated
+
 RELATIONSHIPS:
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Package
 - Entigram_Package (1) [MUST] --- [MAY] (MANY) Entigram_Agent
@@ -346,6 +362,8 @@ RELATIONSHIPS:
 - Entigram_Release (1) [MUST] --- [MAY] (MANY) Entigram_Release_Channel
 - Entigram_Release (1) [MUST] --- [MAY] (MANY) Entigram_Release_Check
 - Entigram_Release_Check (1) [MAY] --- [MAY] (MANY) Entigram_Delivery_Evidence
+- Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Release_PR_Rule
+- Entigram_Release_PR_Rule (1) [MAY] --- [MAY] (MANY) Entigram_Release_Check
 
 /* Phase 3 Macro Chain (Federated) */
 - Idea (1) --- (1) Partner_Organization [ALIGN: Idea.id == Partner_Organization.id]
@@ -408,7 +426,7 @@ EXPECTATION: Out-of-the-box Expectation Guard {
 
 EXPECTATION: Release Orchestration {
   developer_expectation: Entigram releases should publish coherent artifacts across PyPI, Homebrew, standard packages, GitHub releases, and website/docs without checksum drift.
-  implementation_rule: Every release must model the source tag, PyPI sdist checksum, Homebrew formula URL/checksum, standard packages state, website/docs state, and post-release smoke checks; skipped channels require an explicit rationale.
+  implementation_rule: Every release must model the source tag, PyPI sdist checksum, Homebrew formula URL/checksum, standard packages state, website/docs state, post-release smoke checks, and release PR rules; skipped channels require an explicit rationale. PRs that should trigger release-please must use conventional commit titles or merge commits such as fix:, feat:, chore:, docs:, test:, ci:, or refactor:. Published PyPI versions are immutable; after 1.3.1 the next release carrying model changes must be 1.3.2 or higher.
   validation_check: python -m unittest tests.test_entigram_release_model
   proof: python -m unittest tests.test_entigram_release_model
 }
@@ -420,3 +438,4 @@ EXPECTATION: Release Orchestration {
 /* Updated: 2026-06-04 Delivery drift status modeled as a read-only recommission signal */
 /* Updated: 2026-06-04 Out-of-the-box expectation guard added for agent pre-handoff verification */
 /* Updated: 2026-06-17 Release orchestration modeled for PyPI, Homebrew, standard packages, website/docs, and checksum verification */
+/* Updated: 2026-06-18 Release PR governance rules modeled for conventional commits, release-please eligibility, manual dispatch discipline, and immutable published versions */

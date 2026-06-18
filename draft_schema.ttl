@@ -6,7 +6,7 @@
 
 mk:Ontology a owl:Ontology ;
     rdfs:label "Entigram Generated Ontology" ;
-    mk:generatedAt "2026-06-17T19:26:04.132685" .
+    mk:generatedAt "2026-06-17T19:51:39.035053" .
 
 mk:Entigram_Project a owl:Class ;
     rdfs:label "Entigram_Project" .
@@ -100,6 +100,9 @@ mk:Entigram_Release_Channel a owl:Class ;
 
 mk:Entigram_Release_Check a owl:Class ;
     rdfs:label "Entigram_Release_Check" .
+
+mk:Entigram_Release_PR_Rule a owl:Class ;
+    rdfs:label "Entigram_Release_PR_Rule" .
 
 mk:Warehouse a owl:Class ;
     rdfs:label "Warehouse" .
@@ -1183,6 +1186,71 @@ mk:Entigram_Release_Check_checked_at a owl:DatatypeProperty ;
     rdfs:range xsd:dateTime ;
     rdfs:label "checked_at" .
 
+mk:Entigram_Release_PR_Rule_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Release_PR_Rule_name a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "name" .
+
+mk:Entigram_Release_PR_Rule_conventional_commit_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "conventional_commit_type" .
+
+mk:Entigram_Release_PR_Rule_title_pattern a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "title_pattern" .
+
+mk:Entigram_Release_PR_Rule_merge_commit_pattern a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "merge_commit_pattern" .
+
+mk:Entigram_Release_PR_Rule_release_please_required a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "release_please_required" .
+
+mk:Entigram_Release_PR_Rule_release_impact a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "release_impact" .
+
+mk:Entigram_Release_PR_Rule_manual_dispatch_allowed a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "manual_dispatch_allowed" .
+
+mk:Entigram_Release_PR_Rule_manual_dispatch_version_rule a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "manual_dispatch_version_rule" .
+
+mk:Entigram_Release_PR_Rule_immutable_version_rule a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "immutable_version_rule" .
+
+mk:Entigram_Release_PR_Rule_failure_mode a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "failure_mode" .
+
+mk:Entigram_Release_PR_Rule_validation_command a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "validation_command" .
+
+mk:Entigram_Release_PR_Rule_lifecycle_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range xsd:string ;
+    rdfs:label "lifecycle_status" .
+
 mk:Warehouse_id a owl:DatatypeProperty ;
     rdfs:domain mk:Warehouse ;
     rdfs:range xsd:string ;
@@ -1881,6 +1949,44 @@ mk:relates_Entigram_Delivery_Evidence_to_Entigram_Release_Check a owl:ObjectProp
 mk:Entigram_Delivery_Evidence rdfs:subClassOf [
         a owl:Restriction ;
         owl:onProperty mk:relates_Entigram_Delivery_Evidence_to_Entigram_Release_Check ;
+        owl:maxCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Entigram_Release_PR_Rule a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Release_PR_Rule ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Release_PR_Rule_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Release_PR_Rule ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Release_PR_Rule rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Release_PR_Rule_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Release_PR_Rule_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Release_PR_Rule_to_Entigram_Release_Check a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Release_PR_Rule ;
+    rdfs:range mk:Entigram_Release_Check ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Release_Check_to_Entigram_Release_PR_Rule a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Release_PR_Rule_to_Entigram_Release_Check ;
+    rdfs:domain mk:Entigram_Release_Check ;
+    rdfs:range mk:Entigram_Release_PR_Rule ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Release_Check rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Release_Check_to_Entigram_Release_PR_Rule ;
         owl:maxCardinality 1
     ] .
 
