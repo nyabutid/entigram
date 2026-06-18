@@ -80,15 +80,6 @@ jobs:
           
           echo "Releasing version: $VERSION"
 
-          # Calculate the SHA256 of the source distribution
-          SDIST_PATH=$(ls dist/entigram_ai-${VERSION}.tar.gz dist/entigram-ai-${VERSION}.tar.gz 2>/dev/null | head -n 1)
-          if [ -z "$SDIST_PATH" ]; then
-            echo "No source distribution found for version $VERSION"
-            exit 1
-          fi
-          SHA256=$(sha256sum $SDIST_PATH | awk '{ print $1 }')
-          echo "SHA256: $SHA256"
-
           # Clone and update Homebrew tap
           git clone https://x-access-token:${HOMEBREW_TAP_GITHUB_TOKEN}@github.com/nyabutid/homebrew-entigram.git
           cd homebrew-entigram
@@ -99,10 +90,13 @@ jobs:
             exit 1
           fi
           echo "Updating formula: $FORMULA"
-          sed -i "s/entigram[-_]ai-[^/[:space:]]*\.tar\.gz/$(basename "$SDIST_PATH")/g" $FORMULA
-          sed -i "s/sha256 \".*\"/sha256 \"${SHA256}\"/g" $FORMULA
+          python ../scripts/update_homebrew_formula.py --package-name entigram-ai --version "$VERSION" "$FORMULA"
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
+          if git diff --quiet -- "$FORMULA"; then
+            echo "Homebrew formula already up to date."
+            exit 0
+          fi
           git add $FORMULA
           git commit -m "chore: bump etg to ${VERSION}"
           git push origin main
