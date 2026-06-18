@@ -6,6 +6,14 @@
 
 * add out-of-the-box expectation guard for pre-handoff agent verification
 
+## [1.3.3](https://github.com/nyabutid/entigram/compare/v1.3.2...v1.3.3) (2026-06-18)
+
+
+### Bug Fixes
+
+* update homebrew tap from pypi metadata ([2851af3](https://github.com/nyabutid/entigram/commit/2851af39c860a83748b0c96f173297f32dc938a1))
+* update homebrew tap from pypi metadata ([adc332f](https://github.com/nyabutid/entigram/commit/adc332f832879ce5aa0e9d8727ecfd342f4790f3))
+
 ## [1.3.2](https://github.com/nyabutid/entigram/compare/v1.3.1...v1.3.2) (2026-06-18)
 
 
