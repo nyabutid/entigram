@@ -84,6 +84,7 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
             proofs=[
                 "python -m unittest tests.test_entigram_self_improvement_model passed",
                 "python -m unittest tests.test_commissioner passed",
+                "python -m unittest tests.test_entigram_release_model passed",
             ]
         )
 
@@ -91,6 +92,7 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
         self.assertIn("Entigram Self-Improvement Loop", names)
         self.assertIn("Agent Delivery Proof", names)
         self.assertIn("Out-of-the-box Expectation Guard", names)
+        self.assertIn("Release Orchestration", names)
         self.assertTrue(checklist["valid"])
 
 
