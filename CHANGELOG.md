@@ -13,6 +13,23 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.5.0](https://github.com/nyabutid/entigram/compare/v1.4.1...v1.5.0) (2026-06-20)
+
+
+### Features
+
+* deterministic ontology generation and change impact analysis ([dad7c8d](https://github.com/nyabutid/entigram/commit/dad7c8d9bf0f55813f7f58488361ee5580cfe85a))
+* deterministic ontology generation and change impact analysis ([38ae72f](https://github.com/nyabutid/entigram/commit/38ae72f1936a2bc586df37907d311f844e465a6a))
+* harden MCP gate contract ([4c52320](https://github.com/nyabutid/entigram/commit/4c5232011b9c0735310a544c67a2495d36476690))
+* inject RelationalAlgebraGuard into etg_propose_alignment MCP handler ([af00ada](https://github.com/nyabutid/entigram/commit/af00ada789e1e3eaa9adbbb65228959dd11df0fb))
+* model canonical cross-agent governance policy ([b4b480e](https://github.com/nyabutid/entigram/commit/b4b480ed85e6d8c95d0f9c90f3fc8ad343d75ab3))
+
+
+### Bug Fixes
+
+* correct pre-handoff governance order ([cb0aa04](https://github.com/nyabutid/entigram/commit/cb0aa04764294b33526e862ea8c269163c03a596))
+* harden impact analysis and alignment precedence ([98880ca](https://github.com/nyabutid/entigram/commit/98880ca7d62d98425380bd65cb90d8c1dc8387b7))
+
 ## [1.4.1](https://github.com/nyabutid/entigram/compare/v1.4.0...v1.4.1) (2026-06-20)
 
 
