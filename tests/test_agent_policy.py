@@ -1,0 +1,55 @@
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+POLICY = ROOT / ".etg" / "agent_policy.md"
+AGENT_FILES = [
+    ROOT / "AGENTS.md",
+    ROOT / "CLAUDE.md",
+    ROOT / ".agents" / "AGENTS.md",
+    ROOT / "AGENT_INSTRUCTIONS.md",
+    ROOT / "AGY.md",
+    ROOT / "GEMINI.md",
+    ROOT / "OLLAMA.md",
+]
+
+
+class TestAgentPolicy(unittest.TestCase):
+    def test_canonical_policy_exists_and_declares_bootstrap(self):
+        policy = POLICY.read_text()
+
+        self.assertIn("python3 -m entigram.cli_runner.etg_cli hydrate", policy)
+        self.assertIn("broker impact --file <path>", policy)
+        self.assertIn(".etg/state.db", policy)
+
+    def test_agent_instruction_files_point_to_canonical_policy(self):
+        for path in AGENT_FILES:
+            with self.subTest(path=path.relative_to(ROOT)):
+                self.assertTrue(path.exists(), f"{path} is missing")
+                self.assertIn(".etg/agent_policy.md", path.read_text())
+
+    def test_policy_requires_deliver_after_warden_lock(self):
+        policy = POLICY.read_text()
+
+        guard_index = policy.index("broker guard")
+        lock_index = policy.index("warden lock")
+        deliver_index = policy.index("broker deliver")
+        status_index = policy.index("broker status")
+
+        self.assertLess(guard_index, lock_index)
+        self.assertLess(lock_index, deliver_index)
+        self.assertLess(deliver_index, status_index)
+        self.assertIn("Do not run `warden lock` after `broker deliver`", policy)
+        self.assertIn("Delivery status: current", policy)
+
+    def test_policy_expectations_are_modeled(self):
+        schema = (ROOT / "schema.lds").read_text()
+
+        self.assertIn("EXPECTATION: Agent Policy Discoverability", schema)
+        self.assertIn("EXPECTATION: Deterministic Pre-Handoff Gate", schema)
+        self.assertIn("python -m unittest tests.test_agent_policy", schema)
+
+
+if __name__ == "__main__":
+    unittest.main()

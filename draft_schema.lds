@@ -431,6 +431,48 @@ EXPECTATION: Release Orchestration {
   proof: python -m unittest tests.test_entigram_release_model
 }
 
+EXPECTATION: Deterministic Ontology Generation {
+  developer_expectation: Entigram should generate deterministic artifacts to ensure schema checksum stability over time.
+  implementation_rule: The TTL ontology compiler must not include generated-at timestamps or other dynamic metadata that alters the file checksum without structural schema changes.
+  validation_check: python -m unittest tests.test_entigram_self_improvement_model
+  proof: python -m unittest tests.test_entigram_self_improvement_model
+}
+
+EXPECTATION: Change Impact Analysis {
+  developer_expectation: Developers and agents should be able to query the impact of changing a specific file on the system's expectations and modeled entities before making the change.
+  implementation_rule: The broker must expose an `etg broker impact` command that correlates file paths against validation checks, developer expectations, and core schema artifacts.
+  validation_check: python -m unittest tests.test_commissioner
+  proof: python -m unittest tests.test_commissioner
+}
+
+EXPECTATION: Agent Policy Discoverability {
+  developer_expectation: Claude, Codex, Antigravity, Gemini, and other agents should discover the same Entigram governance policy before changing this repository.
+  implementation_rule: `.etg/agent_policy.md` must be the canonical policy, and agent-specific instruction files must point to it instead of duplicating conflicting handoff rules.
+  validation_check: python -m unittest tests.test_agent_policy
+  proof: python -m unittest tests.test_agent_policy
+}
+
+EXPECTATION: Deterministic Pre-Handoff Gate {
+  developer_expectation: Agents must leave the workspace in a current, auditable delivery state before handoff.
+  implementation_rule: The canonical policy must require hydrate/impact discovery, `broker guard`, optional `warden lock` before `broker deliver` when governed schema or ontology files changed, then `broker status`; it must forbid running `warden lock` after `broker deliver`.
+  validation_check: python -m unittest tests.test_agent_policy
+  proof: python -m unittest tests.test_agent_policy
+}
+
+EXPECTATION: MCP Closed-World Schema Scope {
+  developer_expectation: The MCP server should expose only the authoritative LDS schemas for a workspace, not unrelated demos, templates, drafts, or nested files.
+  implementation_rule: `etg serve` must resolve schema boundaries from `.etg/entigram.yaml` `schema_paths` when present and reject schema paths that escape the workspace.
+  validation_check: python -m unittest tests.test_mcp_service
+  proof: python -m unittest tests.test_mcp_service
+}
+
+EXPECTATION: Machine-Readable MCP Gate Responses {
+  developer_expectation: Agents should be able to deterministically branch on MCP gate failures without parsing prose.
+  implementation_rule: MCP tools must return JSON with `ok`, and failures must include `error.code`, `error.message`, and `error.details` while preserving a human-readable error message.
+  validation_check: python -m unittest tests.test_mcp_service
+  proof: python -m unittest tests.test_mcp_service
+}
+
 /* Updated: 2026-05-20 Headless Antigravity engine execution via stdin piping support added */
 /* Updated: 2026-06-04 Entigram self-improvement loop modeled with expectations, evidence, evaluations, proposals, and lessons */
 /* Updated: 2026-06-04 Commissioner companion features: Entigram_Delivery_Snapshot, Blocked lifecycle, proof_capabilities, improvement proposals */
@@ -439,3 +481,5 @@ EXPECTATION: Release Orchestration {
 /* Updated: 2026-06-04 Out-of-the-box expectation guard added for agent pre-handoff verification */
 /* Updated: 2026-06-17 Release orchestration modeled for PyPI, Homebrew, standard packages, website/docs, and checksum verification */
 /* Updated: 2026-06-18 Release PR governance rules modeled for conventional commits, release-please eligibility, manual dispatch discipline, and immutable published versions */
+/* Updated: 2026-06-20 Canonical cross-agent governance policy modeled for discoverability and deterministic handoff */
+/* Updated: 2026-06-20 MCP schema scope and machine-readable gate responses modeled */

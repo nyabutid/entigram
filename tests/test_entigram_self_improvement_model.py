@@ -85,6 +85,8 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
                 "python -m unittest tests.test_entigram_self_improvement_model passed",
                 "python -m unittest tests.test_commissioner passed",
                 "python -m unittest tests.test_entigram_release_model passed",
+                "python -m unittest tests.test_agent_policy passed",
+                "python -m unittest tests.test_mcp_service passed",
             ]
         )
 
@@ -93,6 +95,10 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
         self.assertIn("Agent Delivery Proof", names)
         self.assertIn("Out-of-the-box Expectation Guard", names)
         self.assertIn("Release Orchestration", names)
+        self.assertIn("Agent Policy Discoverability", names)
+        self.assertIn("Deterministic Pre-Handoff Gate", names)
+        self.assertIn("MCP Closed-World Schema Scope", names)
+        self.assertIn("Machine-Readable MCP Gate Responses", names)
         self.assertTrue(checklist["valid"])
 
 

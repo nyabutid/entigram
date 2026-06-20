@@ -1069,3 +1069,80 @@ class EntigramBroker:
                 self.report_conflict(conflict['id'], conflict['entity_type'], conflict['proposed_states'], "EntigramBroker-Sensor")
 
         return all_conflicts
+    def analyze_impact(self, changed_file: str) -> dict:
+        """Analyzes the impact of a changed file on expectations, entities, and relationships."""
+        from .governance.commissioner import Commissioner
+        impact = {
+            "expectations": [],
+            "entities": [],
+            "relationships": []
+        }
+
+        changed_refs = self._impact_file_refs(changed_file)
+        changed_terms = self._impact_file_terms(changed_file)
+        schema_path = self.target_dir / "schema.lds"
+        if schema_path.exists():
+            with open(schema_path, "r", encoding="utf-8") as f:
+                schema_content = f.read()
+            commissioner = Commissioner(schema_content)
+
+            for exp in commissioner.expectations:
+                val_check = getattr(exp, 'validation_check', '') or ''
+                dev_exp = getattr(exp, 'developer_expectation', '') or ''
+                impl_rule = getattr(exp, 'implementation_rule', '') or ''
+                name = getattr(exp, 'name', 'Unknown')
+                searchable = " ".join([val_check, dev_exp, impl_rule])
+                searchable_lower = searchable.lower()
+                term_match = (
+                    len(changed_terms) >= 2
+                    and all(term in searchable_lower for term in changed_terms)
+                )
+                if any(ref and ref in searchable for ref in changed_refs) or term_match:
+                    impact['expectations'].append(name)
+
+        if changed_file.endswith(".lds") or changed_file.endswith(".ttl"):
+            impact['entities'].append("All Entities (Schema change)")
+            impact['relationships'].append("All Relationships (Schema change)")
+
+        return impact
+
+    def _impact_file_refs(self, changed_file: str) -> set:
+        """Return common path/module spellings for matching modeled validation checks."""
+        raw = (changed_file or "").strip()
+        refs = {raw}
+        without_selector = raw.split("::", 1)[0]
+        refs.add(without_selector)
+
+        normalized = without_selector.replace("\\", "/").lstrip("./")
+        refs.add(normalized)
+        if normalized.endswith(".py"):
+            module = normalized[:-3].replace("/", ".")
+            refs.add(module)
+            refs.add(module.replace(".", "/") + ".py")
+        else:
+            refs.add(normalized.replace("/", "."))
+            refs.add(normalized.replace(".", "/") + ".py")
+
+        try:
+            candidate = Path(normalized)
+            if not candidate.is_absolute():
+                candidate = self.target_dir / candidate
+            rel = candidate.resolve().relative_to(self.target_dir)
+            refs.add(rel.as_posix())
+            if rel.suffix == ".py":
+                refs.add(rel.with_suffix("").as_posix().replace("/", "."))
+        except (OSError, ValueError):
+            pass
+
+        return {ref for ref in refs if ref}
+
+    def _impact_file_terms(self, changed_file: str) -> set:
+        normalized = (changed_file or "").split("::", 1)[0].replace("\\", "/").lstrip("./")
+        stem = Path(normalized).with_suffix("").as_posix()
+        terms = set()
+        for part in stem.split("/"):
+            for token in part.replace("-", "_").split("_"):
+                token = token.lower()
+                if len(token) > 2 and token not in {"entigram", "tests", "test", "src", "lib"}:
+                    terms.add(token)
+        return terms

@@ -282,6 +282,45 @@ class TestCommissioner(unittest.TestCase):
         self.assertFalse(delivered)
         self.assertIn("Unknown expectation", deliver_output)
 
+    def test_analyze_impact_matches_python_file_paths_to_validation_checks(self):
+        impact = EntigramBroker(self.test_dir).analyze_impact("tests/test_gameplay.py")
+
+        self.assertIn("Stable Jump Arc", impact["expectations"])
+
+    def test_analyze_impact_matches_module_style_validation_checks(self):
+        Path(self.test_dir, "schema.lds").write_text(
+            command_expectation_schema("python -m unittest tests.test_gameplay")
+        )
+
+        impact = EntigramBroker(self.test_dir).analyze_impact("tests/test_gameplay.py")
+
+        self.assertIn("Runnable Proof", impact["expectations"])
+
+    def test_analyze_impact_reports_schema_contract_changes(self):
+        impact = EntigramBroker(self.test_dir).analyze_impact("schema.lds")
+
+        self.assertIn("All Entities (Schema change)", impact["entities"])
+        self.assertIn("All Relationships (Schema change)", impact["relationships"])
+
+    def test_analyze_impact_matches_implementation_rule_language(self):
+        Path(self.test_dir, "schema.lds").write_text(
+            """
+            ENTITY: Ontology {
+              id UUID PK
+            }
+
+            EXPECTATION: Deterministic Ontology Generation {
+              developer_expectation: Entigram should generate deterministic artifacts.
+              implementation_rule: The TTL ontology compiler must not include generated-at timestamps.
+              validation_check: python -m unittest tests.test_entigram_self_improvement_model
+            }
+            """
+        )
+
+        impact = EntigramBroker(self.test_dir).analyze_impact("entigram/ontology_compiler/compiler.py")
+
+        self.assertIn("Deterministic Ontology Generation", impact["expectations"])
+
     def _run_cli(self, args):
         captured_output = StringIO()
         with patch.object(sys, "argv", ["etg"] + args), patch("sys.stdout", captured_output):

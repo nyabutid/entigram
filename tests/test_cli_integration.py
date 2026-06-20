@@ -3,6 +3,7 @@ import os
 import sys
 import shutil
 import tempfile
+import yaml
 from io import StringIO
 from unittest.mock import patch
 from entigram.cli_runner.etg_cli import main
@@ -38,6 +39,10 @@ class TestCLIIntegration(unittest.TestCase):
             self.assertTrue(success)
             self.assertIn("Workspace initialized", output)
             self.assertTrue(os.path.exists(".etg/entigram.yaml"))
+            with open(".etg/entigram.yaml", "r") as f:
+                manifest = yaml.safe_load(f)
+            self.assertEqual(manifest["schema_paths"], ["schema.lds"])
+            self.assertTrue(manifest["state_ledger"].endswith(".etg/state.db"))
 
     def test_config_command(self):
         # First initialize

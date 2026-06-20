@@ -5,8 +5,7 @@
 @prefix mk: <http://entigram.ai/ontology/custom#> .
 
 mk:Ontology a owl:Ontology ;
-    rdfs:label "Entigram Generated Ontology" ;
-    mk:generatedAt "2026-06-17T19:51:39.032026" .
+    rdfs:label "Entigram Generated Ontology" .
 
 mk:Entigram_Project a owl:Class ;
     rdfs:label "Entigram_Project" .

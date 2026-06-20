@@ -21,7 +21,7 @@ dependencies = [
     "pysqlite3",
     "pyyaml",
     "networkx",
-    "inflect",
+    "inflect<7.3.0",
     "protobuf>=5.26.1",
     "requests",
     "mcp>=1.0.0"

@@ -53,6 +53,38 @@ Before handoff, verify modeled expectations and record evidence:
 python3 -m entigram.cli_runner.etg_cli broker guard
 ```
 
+### 4. Run the Immutable Gate over MCP
+Start the local MCP server from the governed workspace:
+```bash
+etg serve
+```
+
+Agents should discover schemas with `etg_get_schemas`, propose alignments with
+`etg_propose_alignment`, and record deterministic conflicts with
+`etg_log_conflict`. MCP responses use a stable JSON envelope:
+```json
+{"ok":false,"error":{"code":"UNKNOWN_CONCEPT","message":"Error: Invalid Schema Alignment - Entity Ghost not found","details":"Entity Ghost not found"}}
+```
+
+Successful proposals are written to the SQLite ledger configured in
+`.etg/entigram.yaml`:
+```yaml
+schema_paths:
+  - schema.lds
+state_ledger: .etg/state.db
+```
+
+The server treats `schema_paths` as the closed-world boundary. Demo files,
+templates, drafts, and unrelated LDS files are not exposed unless explicitly
+listed.
+
+Before returning work to a human reviewer:
+```bash
+etg broker guard
+etg broker deliver
+etg broker status
+```
+
 ## 🏗️ How it Fits
 
 Entigram is not an orchestration framework, MCP replacement, graph database, or IAM product. It is the **semantic governance layer** that complements those systems by providing:

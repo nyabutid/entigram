@@ -7,6 +7,7 @@ import yaml
 from pathlib import Path
 from entigram.injector import inject_entigram_manifest
 from entigram.sqlite_ledger.manager import LedgerManager
+from entigram.sqlite_ledger.paths import resolve_ledger_path
 from entigram.cli_runner.etg_cli import main
 from unittest.mock import patch
 import sys
@@ -21,7 +22,7 @@ class TestHydration(unittest.TestCase):
         inject_entigram_manifest(self.test_dir, ["Banking"], "Codex")
         
         # Add some data to the ledger
-        self.ledger_path = Path(self.test_dir) / ".etg" / "entigram_state.db"
+        self.ledger_path = resolve_ledger_path(self.test_dir)
         manager = LedgerManager(str(self.ledger_path))
         conn = manager._get_connection()
         conn.execute("INSERT INTO semantic_alignments (source_domain, target_domain, source_concept, target_concept, status) VALUES (?, ?, ?, ?, ?)",
