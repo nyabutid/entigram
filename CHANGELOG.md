@@ -13,6 +13,14 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.4.1](https://github.com/nyabutid/entigram/compare/v1.4.0...v1.4.1) (2026-06-20)
+
+
+### Bug Fixes
+
+* support pyproject-only release versioning ([2ecc1cf](https://github.com/nyabutid/entigram/commit/2ecc1cfd7f304a3d8aeed8021e4321acaf4c3195))
+* support pyproject-only release versioning ([d667780](https://github.com/nyabutid/entigram/commit/d667780ed2d94c1e051acf1693a4dd0e0a1e5432))
+
 ## [1.4.0](https://github.com/nyabutid/entigram/compare/v1.3.3...v1.4.0) (2026-06-20)
 
 
