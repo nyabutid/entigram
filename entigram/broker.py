@@ -1069,3 +1069,30 @@ class EntigramBroker:
                 self.report_conflict(conflict['id'], conflict['entity_type'], conflict['proposed_states'], "EntigramBroker-Sensor")
 
         return all_conflicts
+    def analyze_impact(self, changed_file: str) -> dict:
+        """Analyzes the impact of a changed file on expectations, entities, and relationships."""
+        from .governance.commissioner import Commissioner
+        impact = {
+            "expectations": [],
+            "entities": [],
+            "relationships": []
+        }
+        
+        schema_path = self.target_dir / "schema.lds"
+        if schema_path.exists():
+            with open(schema_path, "r", encoding="utf-8") as f:
+                schema_content = f.read()
+            commissioner = Commissioner(schema_content)
+            
+            for exp in commissioner.expectations:
+                val_check = getattr(exp, 'validation_check', '') or ''
+                dev_exp = getattr(exp, 'developer_expectation', '') or ''
+                name = getattr(exp, 'name', 'Unknown')
+                if changed_file in val_check or changed_file in dev_exp:
+                    impact['expectations'].append(name)
+
+        if changed_file.endswith(".lds") or changed_file.endswith(".ttl"):
+            impact['entities'].append("All Entities (Schema change)")
+            impact['relationships'].append("All Relationships (Schema change)")
+
+        return impact

@@ -431,6 +431,20 @@ EXPECTATION: Release Orchestration {
   proof: python -m unittest tests.test_entigram_release_model
 }
 
+EXPECTATION: Deterministic Ontology Generation {
+  developer_expectation: Entigram should generate deterministic artifacts to ensure schema checksum stability over time.
+  implementation_rule: The TTL ontology compiler must not include generated-at timestamps or other dynamic metadata that alters the file checksum without structural schema changes.
+  validation_check: python -m unittest tests.test_entigram_self_improvement_model
+  proof: python -m unittest tests.test_entigram_self_improvement_model
+}
+
+EXPECTATION: Change Impact Analysis {
+  developer_expectation: Developers and agents should be able to query the impact of changing a specific file on the system's expectations and modeled entities before making the change.
+  implementation_rule: The broker must expose an `etg broker impact` command that correlates file paths against validation checks, developer expectations, and core schema artifacts.
+  validation_check: python -m unittest tests.test_commissioner
+  proof: python -m unittest tests.test_commissioner
+}
+
 /* Updated: 2026-05-20 Headless Antigravity engine execution via stdin piping support added */
 /* Updated: 2026-06-04 Entigram self-improvement loop modeled with expectations, evidence, evaluations, proposals, and lessons */
 /* Updated: 2026-06-04 Commissioner companion features: Entigram_Delivery_Snapshot, Blocked lifecycle, proof_capabilities, improvement proposals */

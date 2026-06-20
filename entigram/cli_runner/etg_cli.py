@@ -550,6 +550,9 @@ def main():
     mesh_parser.add_argument("--data", required=True, help="Directory containing partner CSV/JSON files")
     mesh_parser.add_argument("--threshold", type=float, default=0.8, help="Auto-alignment confidence threshold")
 
+    impact_parser = broker_subparsers.add_parser("impact", help="Change Impact Analysis")
+    impact_parser.add_argument("--file", required=True, help="Path to changed file")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -1033,6 +1036,9 @@ RELATIONSHIPS:
             else:
                 print(f"❌ Model invalid: {result['error']}")
                 sys.exit(1)
+        elif args.broker_command == "impact":
+            impact = broker.analyze_impact(args.file)
+            print(json.dumps(impact, indent=2))
         elif args.broker_command in ("commission", "commissioner"):
             result = broker.commission(
                 proofs=args.proof,

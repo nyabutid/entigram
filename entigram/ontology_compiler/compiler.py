@@ -24,8 +24,7 @@ class OntologyCompiler:
             f"@prefix mk: <{self.base_uri}> .",
             "",
             "mk:Ontology a owl:Ontology ;",
-            f"    rdfs:label \"Entigram Generated Ontology\" ;",
-            f"    mk:generatedAt \"{datetime.now().isoformat()}\" .\n"
+            f"    rdfs:label \"Entigram Generated Ontology\" .\n"
         ]
 
         # 1. Classes (Entities)

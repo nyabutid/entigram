@@ -3,6 +3,6 @@ streamlit>=1.35.0     # Modern Streamlit for better Python support
 pysqlite3             # For the SQLite decision ledger
 pyyaml                # To parse the entigram.yaml manifests
 networkx              # For local graph/Schema logic processing
-inflect               # For robust pluralization/singularization
+inflect<7.3.0         # For robust pluralization/singularization
 protobuf>=5.26.1      # Ensure modern protobuf for C-extension compatibility
 pycozo
