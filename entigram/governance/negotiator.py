@@ -32,9 +32,12 @@ def _compute_similarity(a: str, b: str, ledger_path: str = None) -> float:
     if ledger_path:
         from ..sqlite_ledger.manager import LedgerManager
         ledger = LedgerManager(ledger_path)
-        syns = ledger.get_synonyms(a)
-        if b in syns:
-            return 0.95
+        try:
+            syns = ledger.get_synonyms(a)
+            if b in syns:
+                return 0.95
+        finally:
+            ledger.close()
 
     # 2. Check Static Synonyms (Fallback)
     if a in _SYNONYMS and b in _SYNONYMS[a]:

@@ -5,6 +5,13 @@
 ### Features
 
 * add out-of-the-box expectation guard for pre-handoff agent verification
+* add `etg serve` MCP server with schema-gated alignment and conflict tools
+* publish agent discoverability through `ai-catalog.json`
+
+### Bug Fixes
+
+* harden SQLite ledger concurrency with WAL mode and busy timeouts
+* close warning-producing registry, broker, router, and hydration resources
 
 ## [1.3.3](https://github.com/nyabutid/entigram/compare/v1.3.2...v1.3.3) (2026-06-18)
 

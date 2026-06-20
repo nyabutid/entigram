@@ -803,7 +803,8 @@ if target_dir:
     entigram_dir = os.path.join(target_dir, ".etg")
     if os.path.exists(entigram_dir):
         st.subheader("Decisions")
-        ledger = LedgerManager(os.path.join(entigram_dir, "entigram_state.db"))
+        from entigram.sqlite_ledger.paths import resolve_ledger_path
+        ledger = LedgerManager(str(resolve_ledger_path(target_dir)))
         res = ledger.get_all_resolutions()
         if res: st.dataframe(res, width='stretch')
         else: st.info("No decisions recorded.")

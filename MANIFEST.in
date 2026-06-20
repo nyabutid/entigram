@@ -1,4 +1,5 @@
-recursive-include entigram/templates *
-recursive-include entigram/ui *
+recursive-include entigram/templates *.lds *.ttl *.md *.py
+recursive-include entigram/templates/schema_modeling .gitignore
+recursive-include entigram/ui/media *.svg
 include README.md
 include LICENSE

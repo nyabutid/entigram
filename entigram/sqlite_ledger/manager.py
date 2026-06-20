@@ -1,8 +1,9 @@
 import json
 import sqlite3
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
+from .paths import CANONICAL_LEDGER_NAME, LEGACY_LEDGER_NAME
 from entigram.governance.grounding import (
     EVIDENCE_HUMAN_REVIEW,
     LIFECYCLE_PROPOSED,
@@ -11,18 +12,47 @@ from entigram.governance.grounding import (
 
 class LedgerManager:
     def __init__(self, db_path: str):
-        self.db_path = db_path
+        self.db_path = self._normalize_db_path(db_path)
         # Keep a persistent connection for in-memory databases to avoid losing data
         self._memory_conn = None
         if self.db_path == ":memory:":
-            self._memory_conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self._memory_conn = sqlite3.connect(
+                self.db_path,
+                timeout=5.0,
+                check_same_thread=False,
+            )
+            self._configure_connection(self._memory_conn)
             
         self._ensure_db()
+
+    def _normalize_db_path(self, db_path: str) -> str:
+        if db_path == ":memory:":
+            return db_path
+
+        path = Path(db_path).expanduser()
+        if (
+            path.name == LEGACY_LEDGER_NAME
+            and not path.exists()
+            and (path.parent / CANONICAL_LEDGER_NAME).exists()
+        ):
+            return str(path.parent / CANONICAL_LEDGER_NAME)
+        return str(path)
 
     def _get_connection(self):
         if self._memory_conn is not None:
             return self._memory_conn
-        return sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=5.0)
+        self._configure_connection(conn)
+        return conn
+
+    def _configure_connection(self, conn):
+        conn.execute("PRAGMA busy_timeout=5000;")
+        if self.db_path != ":memory:":
+            mode = conn.execute("PRAGMA journal_mode=WAL;").fetchone()
+            if not mode or str(mode[0]).lower() != "wal":
+                raise sqlite3.OperationalError(
+                    f"Unable to enable WAL mode for SQLite ledger {self.db_path}"
+                )
 
     def close(self):
         if self._memory_conn is not None:
@@ -318,7 +348,7 @@ class LedgerManager:
         """Persists a semantic alignment with explicit grounding metadata."""
         conn = self._get_connection()
         try:
-            verified_at = datetime.utcnow().isoformat() if verified else None
+            verified_at = datetime.now(timezone.utc).isoformat() if verified else None
             with conn:
                 conn.execute('''
                     INSERT INTO semantic_alignments (

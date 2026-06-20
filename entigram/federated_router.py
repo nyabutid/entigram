@@ -4,6 +4,7 @@ import threading
 import json
 import difflib
 import inflect
+from contextlib import closing
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .broker import EntigramBroker
@@ -37,6 +38,22 @@ class FederatedRouter:
         # Load schema to understand which entity belongs where
         self.entities = {}
         self._load_schema()
+
+    def close(self):
+        self.broker.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+        return False
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
 
     _COZO_UNAVAILABLE = object()  # sentinel value meaning "tried and failed"
 
@@ -86,7 +103,7 @@ class FederatedRouter:
         for pkg in active_packages:
             db_path = self.etg_dir / "states" / f"{pkg}.db"
             if db_path.exists():
-                with sqlite3.connect(db_path) as conn:
+                with closing(sqlite3.connect(db_path)) as conn:
                     cursor = conn.cursor()
                     cursor.execute(
                         "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -106,7 +123,7 @@ class FederatedRouter:
         if not domain:
             return []
         db_path = self.etg_dir / "states" / f"{domain}.db"
-        with sqlite3.connect(db_path) as conn:
+        with closing(sqlite3.connect(db_path)) as conn:
             cols = [c[1] for c in conn.execute(
                 f"PRAGMA table_info({self._get_table_name(entity_name)})"
             ).fetchall()]
@@ -128,7 +145,7 @@ class FederatedRouter:
                 if ent not in self._synced_entities:
                     if not self._sync_entity_to_cozo(ent):
                         # If sync fails, force fallback to SQL for this query
-                        print(f"Warning: Sync to CozoDB failed for '{ent}', falling back to SQL.")
+                        print(f"Info: CozoDB sync unavailable for '{ent}', falling back to SQL.")
                         fallback_tokens = re.findall(r'\w+|[{}()]|[:,]', graphql_query)
                         return self._execute_recursive(fallback_tokens)
                     self._synced_entities.add(ent)
@@ -181,7 +198,7 @@ class FederatedRouter:
         db_path = self.etg_dir / "states" / f"{domain}.db"
         rel_name = entity_name.lower()
 
-        with sqlite3.connect(db_path) as conn:
+        with closing(sqlite3.connect(db_path)) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 

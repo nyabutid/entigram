@@ -51,7 +51,8 @@ def get_hydration_vector(target_path: Path, compact: bool = False) -> str:
     """Deterministic boot sequence to align LLM state vector by flattening ledger and Schema."""
     entigram_dir = target_path / ".etg"
     manifest_path = entigram_dir / "entigram.yaml"
-    ledger_path = entigram_dir / "entigram_state.db"
+    from entigram.sqlite_ledger.paths import resolve_ledger_path
+    ledger_path = resolve_ledger_path(str(target_path))
 
     if not manifest_path.exists():
         return f"❌ Error: Not an Entigram workspace (missing {manifest_path})"
@@ -247,9 +248,21 @@ def main():
     query_parser.add_argument("--graphql", required=True, help="GraphQL query string")
 
     # serve command
-    serve_parser = subparsers.add_parser("serve", help="Launch the Entigram Federated GraphQL Hub (API Server)")
+    serve_parser = subparsers.add_parser("serve", help="Launch the Entigram MCP server")
     serve_parser.add_argument("--dir", default=".", help="Target directory")
-    serve_parser.add_argument("--port", type=int, default=8080, help="Port to listen on (default: 8080)")
+    serve_parser.add_argument(
+        "--transport",
+        choices=["stdio", "sse", "graphql"],
+        default="stdio",
+        help="Server transport: stdio MCP (default), sse MCP, or legacy graphql",
+    )
+    serve_parser.add_argument("--host", default="127.0.0.1", help="Host for SSE transport (default: 127.0.0.1)")
+    serve_parser.add_argument("--port", type=int, default=8080, help="Port for SSE or legacy GraphQL (default: 8080)")
+    serve_parser.add_argument(
+        "--legacy-graphql",
+        action="store_true",
+        help="Launch the previous Federated GraphQL Hub instead of MCP",
+    )
 
     # ui command
     ui_parser = subparsers.add_parser("ui", help="Launch the Entigram Visual Dashboard")
@@ -727,12 +740,21 @@ def main():
             root = find_project_root(os.getcwd())
             target_dir = str(root) if root else os.getcwd()
 
-        from entigram.governance.warden import Warden
-        if not Warden(target_dir).verify_integrity():
-            sys.exit(1)
-            
-        from entigram.server import run_server
-        run_server(port=args.port, project_dir=target_dir)
+        if args.legacy_graphql or args.transport == "graphql":
+            from entigram.governance.warden import Warden
+            if not Warden(target_dir).verify_integrity():
+                sys.exit(1)
+
+            from entigram.server import run_server
+            run_server(port=args.port, project_dir=target_dir)
+        else:
+            from entigram.mcp_server import run_mcp_server
+            run_mcp_server(
+                target_dir=target_dir,
+                transport=args.transport,
+                host=args.host,
+                port=args.port,
+            )
 
     elif args.command == "boot" or args.command == "hydrate":
         # Resolve target directory

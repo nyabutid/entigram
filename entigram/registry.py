@@ -15,7 +15,12 @@ class EntigramRegistry:
         self.target_dir = Path(target_dir).expanduser().resolve()
         self.etg_dir = self.target_dir / ".etg"
         self.manifest_path = self.etg_dir / "entigram.yaml"
-        self.global_cache_dir = Path.home() / ".etg" / "registry_cache"
+        cache_root = os.environ.get("ENTIGRAM_REGISTRY_CACHE_DIR")
+        self.global_cache_dir = (
+            Path(cache_root).expanduser()
+            if cache_root
+            else Path.home() / ".etg" / "registry_cache"
+        )
         self.global_cache_dir.mkdir(parents=True, exist_ok=True)
         self.default_registry = "git@github.com:nyabutid/entigram-standard-packages.git"
 
@@ -69,6 +74,9 @@ class EntigramRegistry:
 
     def _fetch_registry(self, url: str) -> Optional[Path]:
         """Clones or pulls the latest version of the registry into the global cache."""
+        if os.environ.get("ENTIGRAM_REGISTRY_OFFLINE") == "1":
+            return None
+
         url_hash = hashlib.md5(url.encode()).hexdigest()
         cache_path = self.global_cache_dir / url_hash
         
@@ -111,6 +119,9 @@ class EntigramRegistry:
         Simulates fetching a package from a Entigram API registry.
         In a production environment, this would download a signed tarball.
         """
+        if os.environ.get("ENTIGRAM_REGISTRY_OFFLINE") == "1":
+            return None
+
         url_hash = hashlib.md5(f"{api_url}/{package_name}".encode()).hexdigest()
         cache_path = self.global_cache_dir / "api_cache" / url_hash
         
@@ -128,6 +139,9 @@ class EntigramRegistry:
         into the local .etg/packages directory. Locks the version.
         Supports namespaces e.g., @entigram/SupplyChain.
         """
+        if os.environ.get("ENTIGRAM_REGISTRY_OFFLINE") == "1":
+            return False
+
         registries = self.get_registries()
         local_packages_dir = self.etg_dir / "packages"
         local_packages_dir.mkdir(parents=True, exist_ok=True)

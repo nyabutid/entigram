@@ -11,10 +11,9 @@ requires-python = ">=3.9"
 authors = [
     { name = "Entigram Authors" }
 ]
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
@@ -24,13 +23,21 @@ dependencies = [
     "networkx",
     "inflect",
     "protobuf>=5.26.1",
-    "requests"
+    "requests",
+    "mcp>=1.0.0"
 ]
+
+[project.urls]
+Homepage = "https://entigram.ai"
+Source = "https://github.com/nyabutid/entigram"
+Documentation = "https://entigram.ai"
+Tracker = "https://github.com/nyabutid/entigram/issues"
 
 [project.scripts]
 etg = "entigram.cli_runner.etg_cli:main"
 
 [tool.setuptools]
+include-package-data = false
 packages = [
     "entigram", 
     "entigram.cli_runner", 
@@ -44,4 +51,11 @@ packages = [
 ]
 
 [tool.setuptools.package-data]
-"*" = ["*.lds", "*.ttl", "*.md", "*.html", "*.py"]
+entigram = [
+    "templates/**/*.lds",
+    "templates/**/*.ttl",
+    "templates/**/*.md",
+    "templates/**/*.py",
+    "templates/**/.gitignore",
+    "ui/media/*.svg",
+]
