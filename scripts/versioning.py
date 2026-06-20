@@ -24,9 +24,6 @@ VERSION_RE = re.compile(
 )
 
 
-VERSION_FILES = (Path("pyproject.toml"), Path("setup.py"))
-
-
 def validate_version(version: str) -> None:
     if not VERSION_RE.fullmatch(version):
         raise SystemExit(
@@ -39,24 +36,28 @@ def set_version(version: str) -> dict[Path, str]:
     validate_version(version)
     originals: dict[Path, str] = {}
 
-    replacements = {
+    required_replacements = {
         Path("pyproject.toml"): (
             re.compile(r'(?m)^version = "([^"]+)"$'),
             f'version = "{version}"',
-        ),
-        Path("setup.py"): (
-            re.compile(r'version="([^"]+)"'),
-            f'version="{version}"',
-        ),
+        )
     }
 
-    for path, (pattern, replacement) in replacements.items():
+    for path, (pattern, replacement) in required_replacements.items():
         text = path.read_text()
         updated, count = pattern.subn(replacement, text, count=1)
         if count != 1:
             raise SystemExit(f"Could not update version in {path}")
         originals[path] = text
         path.write_text(updated)
+
+    setup_path = Path("setup.py")
+    if setup_path.exists():
+        text = setup_path.read_text()
+        updated, count = re.subn(r'version="([^"]+)"', f'version="{version}"', text, count=1)
+        if count:
+            originals[setup_path] = text
+            setup_path.write_text(updated)
 
     return originals
 
