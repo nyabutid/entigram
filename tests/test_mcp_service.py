@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import yaml
 from entigram.injector import inject_entigram_manifest
 from entigram.mcp_service import EntigramMCPService
 from entigram.sqlite_ledger.manager import LedgerManager
@@ -51,9 +52,28 @@ class TestMCPService(unittest.TestCase):
     def test_get_schemas_returns_lds_boundaries(self):
         output = json.loads(self.service.get_schemas())
 
+        self.assertTrue(output["ok"])
         self.assertEqual(output["schemas"][0]["path"], "schema.lds")
         self.assertIn("User", output["schemas"][0]["entities"])
         self.assertIn("Account", output["schemas"][0]["entities"])
+
+    def test_get_schemas_honors_explicit_manifest_schema_paths(self):
+        Path(self.test_dir, "template.lds").write_text(
+            """
+ENTITY: Ghost {
+  id UUID PK
+}
+"""
+        )
+        manifest_path = Path(self.test_dir, ".etg", "entigram.yaml")
+        manifest = yaml.safe_load(manifest_path.read_text())
+        manifest["schema_paths"] = ["schema.lds"]
+        manifest_path.write_text(yaml.dump(manifest, default_flow_style=False))
+
+        output = json.loads(self.service.get_schemas())
+
+        self.assertEqual([schema["path"] for schema in output["schemas"]], ["schema.lds"])
+        self.assertNotIn("Ghost", output["schemas"][0]["entities"])
 
     def test_propose_alignment_validates_and_writes_proposal(self):
         result = json.loads(
@@ -96,7 +116,13 @@ class TestMCPService(unittest.TestCase):
             )
         )
 
-        self.assertIn("Error: Invalid Schema Alignment - Entity Ghost not found", result)
+        error = json.loads(result)
+        self.assertFalse(error["ok"])
+        self.assertEqual(error["error"]["code"], "UNKNOWN_CONCEPT")
+        self.assertEqual(
+            error["error"]["message"],
+            "Error: Invalid Schema Alignment - Entity Ghost not found",
+        )
         ledger = LedgerManager(str(resolve_ledger_path(self.test_dir)))
         try:
             self.assertEqual(ledger.get_alignments(), [])
@@ -135,7 +161,10 @@ class TestMCPService(unittest.TestCase):
             )
         )
 
-        self.assertIn("RA Precedence Violation", child_result)
+        error = json.loads(child_result)
+        self.assertFalse(error["ok"])
+        self.assertEqual(error["error"]["code"], "RELATIONAL_GUARD_FAILED")
+        self.assertIn("RA Precedence Violation", error["error"]["message"])
 
     def test_propose_alignment_allows_child_when_parent_alignment_is_trusted(self):
         Path(self.test_dir, "schema.lds").write_text(PARENT_CHILD_SCHEMA)
@@ -184,7 +213,13 @@ class TestMCPService(unittest.TestCase):
             )
         )
 
-        self.assertIn("Error: Invalid Conflict - Attribute invented not found on entity User", result)
+        error = json.loads(result)
+        self.assertFalse(error["ok"])
+        self.assertEqual(error["error"]["code"], "UNKNOWN_ATTRIBUTE")
+        self.assertEqual(
+            error["error"]["message"],
+            "Error: Invalid Conflict - Attribute invented not found on entity User",
+        )
 
     def test_log_conflict_validates_and_writes_conflict(self):
         result = json.loads(

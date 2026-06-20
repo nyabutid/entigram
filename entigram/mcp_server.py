@@ -1,3 +1,4 @@
+import json
 import sys
 from typing import Optional
 
@@ -28,7 +29,7 @@ def create_mcp_server(target_dir: str = ".", host: Optional[str] = None, port: O
         try:
             return service.get_schemas()
         except Exception as exc:
-            return f"Error: Failed to read schemas - {exc}"
+            return _tool_error("SCHEMA_DISCOVERY_FAILED", f"Failed to read schemas - {exc}")
 
     @mcp.tool()
     def etg_propose_alignment(payload: str) -> str:
@@ -36,7 +37,7 @@ def create_mcp_server(target_dir: str = ".", host: Optional[str] = None, port: O
         try:
             return service.propose_alignment(payload)
         except Exception as exc:
-            return f"Error: Invalid Schema Alignment - {exc}"
+            return _tool_error("INVALID_SCHEMA_ALIGNMENT", f"Invalid Schema Alignment - {exc}")
 
     @mcp.tool()
     def etg_log_conflict(payload: str) -> str:
@@ -44,9 +45,23 @@ def create_mcp_server(target_dir: str = ".", host: Optional[str] = None, port: O
         try:
             return service.log_conflict(payload)
         except Exception as exc:
-            return f"Error: Invalid Conflict - {exc}"
+            return _tool_error("INVALID_CONFLICT", f"Invalid Conflict - {exc}")
 
     return mcp
+
+
+def _tool_error(code: str, detail: str) -> str:
+    return json.dumps(
+        {
+            "ok": False,
+            "error": {
+                "code": code,
+                "message": f"Error: {detail}",
+                "details": detail,
+            },
+        },
+        sort_keys=True,
+    )
 
 
 def run_mcp_server(

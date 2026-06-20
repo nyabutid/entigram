@@ -459,6 +459,20 @@ EXPECTATION: Deterministic Pre-Handoff Gate {
   proof: python -m unittest tests.test_agent_policy
 }
 
+EXPECTATION: MCP Closed-World Schema Scope {
+  developer_expectation: The MCP server should expose only the authoritative LDS schemas for a workspace, not unrelated demos, templates, drafts, or nested files.
+  implementation_rule: `etg serve` must resolve schema boundaries from `.etg/entigram.yaml` `schema_paths` when present and reject schema paths that escape the workspace.
+  validation_check: python -m unittest tests.test_mcp_service
+  proof: python -m unittest tests.test_mcp_service
+}
+
+EXPECTATION: Machine-Readable MCP Gate Responses {
+  developer_expectation: Agents should be able to deterministically branch on MCP gate failures without parsing prose.
+  implementation_rule: MCP tools must return JSON with `ok`, and failures must include `error.code`, `error.message`, and `error.details` while preserving a human-readable error message.
+  validation_check: python -m unittest tests.test_mcp_service
+  proof: python -m unittest tests.test_mcp_service
+}
+
 /* Updated: 2026-05-20 Headless Antigravity engine execution via stdin piping support added */
 /* Updated: 2026-06-04 Entigram self-improvement loop modeled with expectations, evidence, evaluations, proposals, and lessons */
 /* Updated: 2026-06-04 Commissioner companion features: Entigram_Delivery_Snapshot, Blocked lifecycle, proof_capabilities, improvement proposals */
@@ -468,3 +482,4 @@ EXPECTATION: Deterministic Pre-Handoff Gate {
 /* Updated: 2026-06-17 Release orchestration modeled for PyPI, Homebrew, standard packages, website/docs, and checksum verification */
 /* Updated: 2026-06-18 Release PR governance rules modeled for conventional commits, release-please eligibility, manual dispatch discipline, and immutable published versions */
 /* Updated: 2026-06-20 Canonical cross-agent governance policy modeled for discoverability and deterministic handoff */
+/* Updated: 2026-06-20 MCP schema scope and machine-readable gate responses modeled */
