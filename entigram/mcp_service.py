@@ -12,7 +12,13 @@ class RelationalAlgebraGuard:
         self.catalog = catalog
         self.broker = broker
 
-    def validate_alignment_proposal(self, src_concept: str, tgt_concept: str):
+    def validate_alignment_proposal(
+        self,
+        source_domain: str,
+        target_domain: str,
+        src_concept: str,
+        tgt_concept: str,
+    ):
         src_entity = src_concept.split('.')[0] if '.' in src_concept else src_concept
         tgt_entity = tgt_concept.split('.')[0] if '.' in tgt_concept else tgt_concept
 
@@ -30,10 +36,22 @@ class RelationalAlgebraGuard:
         if src_entity in dag:
             ancestors = nx.ancestors(dag, src_entity)
             if ancestors:
-                alignments = self.broker.ledger.get_alignments()
-                aligned_sources = {a["source_concept"].split('.')[0] if '.' in a["source_concept"] else a["source_concept"] for a in alignments}
+                target_ancestors = nx.ancestors(dag, tgt_entity) if tgt_entity in dag else set()
+                target_parent_candidates = target_ancestors or {tgt_entity}
+                alignments = self.broker.ledger.get_alignments(
+                    source_domain=source_domain,
+                    trusted_only=True,
+                )
+                aligned_pairs = {
+                    (
+                        a["source_concept"].split('.')[0] if '.' in a["source_concept"] else a["source_concept"],
+                        a["target_concept"].split('.')[0] if '.' in a["target_concept"] else a["target_concept"],
+                    )
+                    for a in alignments
+                    if a.get("target_domain") == target_domain
+                }
                 for ancestor in ancestors:
-                    if ancestor not in aligned_sources:
+                    if not any((ancestor, target_parent) in aligned_pairs for target_parent in target_parent_candidates):
                         raise ValueError(f"RA Precedence Violation: Must align parent entity '{ancestor}' before aligning '{src_concept}'.")
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]{0,127}$")
@@ -159,7 +177,12 @@ class EntigramMCPService:
             return "Error: Invalid Schema Alignment - schema integrity check failed"
 
         try:
-            RelationalAlgebraGuard(catalog, broker).validate_alignment_proposal(data["source_concept"], data["target_concept"])
+            RelationalAlgebraGuard(catalog, broker).validate_alignment_proposal(
+                data["source_domain"],
+                data["target_domain"],
+                data["source_concept"],
+                data["target_concept"],
+            )
         except ValueError as e:
             return f"Error: Invalid Schema Alignment - {str(e)}"
 

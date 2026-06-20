@@ -22,6 +22,21 @@ ENTITY: Account {
 }
 """
 
+PARENT_CHILD_SCHEMA = """
+ENTITY: Parent {
+  id UUID PK
+  name String
+}
+
+ENTITY: Child {
+  id UUID PK
+  name String
+}
+
+RELATIONSHIPS:
+- Parent (1) [MUST] --- [MAY] (MANY) Child
+"""
+
 
 class TestMCPService(unittest.TestCase):
     def setUp(self):
@@ -87,6 +102,72 @@ class TestMCPService(unittest.TestCase):
             self.assertEqual(ledger.get_alignments(), [])
         finally:
             ledger.close()
+
+    def test_propose_alignment_rejects_child_when_parent_alignment_is_only_proposed(self):
+        Path(self.test_dir, "schema.lds").write_text(PARENT_CHILD_SCHEMA)
+
+        parent_result = json.loads(
+            self.service.propose_alignment(
+                json.dumps(
+                    {
+                        "source_domain": "CRM",
+                        "target_domain": "ERP",
+                        "source_concept": "Parent.name",
+                        "target_concept": "Parent.name",
+                        "confidence": 0.91,
+                        "rationale": "Proposed parent mapping.",
+                    }
+                )
+            )
+        )
+        self.assertTrue(parent_result["ok"])
+
+        child_result = self.service.propose_alignment(
+            json.dumps(
+                {
+                    "source_domain": "CRM",
+                    "target_domain": "ERP",
+                    "source_concept": "Child.name",
+                    "target_concept": "Child.name",
+                    "confidence": 0.91,
+                    "rationale": "Child mapping should wait for a verified parent.",
+                }
+            )
+        )
+
+        self.assertIn("RA Precedence Violation", child_result)
+
+    def test_propose_alignment_allows_child_when_parent_alignment_is_trusted(self):
+        Path(self.test_dir, "schema.lds").write_text(PARENT_CHILD_SCHEMA)
+        ledger = LedgerManager(str(resolve_ledger_path(self.test_dir)))
+        try:
+            ledger.record_alignment(
+                source_domain="CRM",
+                target_domain="ERP",
+                source_concept="Parent.name",
+                target_concept="Parent.name",
+                confidence=0.95,
+                rationale="Verified parent mapping.",
+            )
+        finally:
+            ledger.close()
+
+        child_result = json.loads(
+            self.service.propose_alignment(
+                json.dumps(
+                    {
+                        "source_domain": "CRM",
+                        "target_domain": "ERP",
+                        "source_concept": "Child.name",
+                        "target_concept": "Child.name",
+                        "confidence": 0.91,
+                        "rationale": "Child mapping follows verified parent.",
+                    }
+                )
+            )
+        )
+
+        self.assertTrue(child_result["ok"])
 
     def test_log_conflict_rejects_unknown_attribute(self):
         result = self.service.log_conflict(
