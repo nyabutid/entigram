@@ -43,24 +43,22 @@ class TestHydration(unittest.TestCase):
         """Verifies that the hydrate command produces a valid hydration sequence."""
         test_args = ["entigram", "hydrate"]
         with patch.object(sys, 'argv', test_args):
-            with patch('sys.stdout', new_callable=lambda: open(os.devnull, 'w')) as devnull:
-                # We want to capture stdout for real here to verify the content
-                from io import StringIO
-                captured_output = StringIO()
-                with patch('sys.stdout', captured_output):
-                    try:
-                        main()
-                    except SystemExit:
-                        pass
-                
-                output = captured_output.getvalue()
-                self.assertIn("--- ENTIGRAM HYDRATION SEQUENCE ---", output)
-                self.assertIn("--- SEQUENCE COMPLETE ---", output)
-                self.assertIn("ENTIGRAM_BOOT_VECTOR", output)
-                self.assertIn("DomainA", output)
-                self.assertIn("DomainB", output)
-                self.assertIn("User", output)
-                self.assertIn("active", output)
+            from io import StringIO
+            captured_output = StringIO()
+            with patch('sys.stdout', captured_output):
+                try:
+                    main()
+                except SystemExit:
+                    pass
+
+            output = captured_output.getvalue()
+            self.assertIn("--- ENTIGRAM HYDRATION SEQUENCE ---", output)
+            self.assertIn("--- SEQUENCE COMPLETE ---", output)
+            self.assertIn("ENTIGRAM_BOOT_VECTOR", output)
+            self.assertIn("DomainA", output)
+            self.assertIn("DomainB", output)
+            self.assertIn("User", output)
+            self.assertIn("active", output)
 
     def test_boot_alias(self):
         """Verifies that 'boot' is a valid alias for 'hydrate'."""

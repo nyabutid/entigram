@@ -7,6 +7,7 @@ from itertools import combinations
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
 from .sqlite_ledger.manager import LedgerManager
+from .sqlite_ledger.paths import resolve_ledger_path
 from datetime import datetime
 from .governance.warden import Warden
 
@@ -18,14 +19,32 @@ class EntigramBroker:
     def __init__(self, target_dir: str, ledger: LedgerManager = None, seed_synonyms: bool = True):
         self.target_dir = Path(target_dir).expanduser().resolve()
         self.etg_dir = self.target_dir / ".etg"
-        self.ledger_path = self.etg_dir / "entigram_state.db"
+        self.ledger_path = resolve_ledger_path(str(self.target_dir))
         self.ledger = ledger if ledger is not None else LedgerManager(str(self.ledger_path))
+        self._owns_ledger = ledger is None
         self.warden = Warden(str(self.target_dir))
         self._packages_cache = None
         
         # Seed initial synonyms if table is empty (Phase 3 Scalability)
         if seed_synonyms:
             self._seed_synonyms()
+
+    def close(self):
+        if self._owns_ledger and self.ledger is not None:
+            self.ledger.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+        return False
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
 
     def _seed_synonyms(self):
         """Seeds the ledger with default synonyms if empty."""

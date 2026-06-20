@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 from .project_history import add_project_to_history
+from .sqlite_ledger.paths import CANONICAL_LEDGER_NAME
 
 def inject_entigram_manifest(target_dir: str, selected_packages: list, cli_engine: str) -> bool:
     """
@@ -28,7 +29,7 @@ def inject_entigram_manifest(target_dir: str, selected_packages: list, cli_engin
         "entigram_version": "0.0.1",
         "packages": locked_packages,
         "cli_engine": cli_engine,
-        "state_ledger": str(entigram_dir / "entigram_state.db"),
+        "state_ledger": str(entigram_dir / CANONICAL_LEDGER_NAME),
         "status": "initialized",
         "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
@@ -58,7 +59,7 @@ You are an edge-agent operating within a Entigram Federated Architecture.
 ## Workspace Context
 - **Manifest:** You MUST read `.etg/entigram.yaml` (using your `read_file` tool) to understand project metadata and active packages.
 - **Packages:** {", ".join(selected_packages)}
-- **Decisions Ledger:** Contradictions must be resolved via the human tie-breaker ledger at `.etg/entigram_state.db`.
+- **Decisions Ledger:** Contradictions must be resolved via the human tie-breaker ledger at `.etg/state.db`.
 
 ## Primary Directives
 1. **Schema First:** Never generate code or ontologies before an Entigram Schema is explicitly defined in `schema.lds`.
@@ -142,8 +143,13 @@ You are an edge-agent operating within a Entigram Federated Architecture.
             if potential_local.exists():
                 src_path = potential_local
                 
-        # 3. Fallback to Registry if not found locally
-        if not src_path or not src_path.exists():
+        # 3. Optional fallback to Registry if not found locally.
+        # Workspace init should not unexpectedly mutate a global cache or perform
+        # network operations unless explicitly requested.
+        if (
+            (not src_path or not src_path.exists())
+            and os.environ.get("ENTIGRAM_INIT_FETCH_REGISTRY") == "1"
+        ):
             from entigram.registry import EntigramRegistry
             registry = EntigramRegistry(target_dir)
             if registry.install_package(package):
