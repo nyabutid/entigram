@@ -5,7 +5,36 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from entigram.broker import EntigramBroker
 from entigram.schema_compiler.parser import SchemaParser
+import networkx as nx
 
+class RelationalAlgebraGuard:
+    def __init__(self, catalog: Dict[str, Any], broker: Any):
+        self.catalog = catalog
+        self.broker = broker
+
+    def validate_alignment_proposal(self, src_concept: str, tgt_concept: str):
+        src_entity = src_concept.split('.')[0] if '.' in src_concept else src_concept
+        tgt_entity = tgt_concept.split('.')[0] if '.' in tgt_concept else tgt_concept
+
+        src_attrs = self.catalog["entities"].get(src_entity)
+        tgt_attrs = self.catalog["entities"].get(tgt_entity)
+        if src_attrs is None or tgt_attrs is None:
+            raise ValueError("RA Union-Compatibility Violation: Concept missing from schema.")
+        relationships = self.catalog.get("relationships", [])
+        dag = nx.DiGraph()
+        for rel in relationships:
+            if rel["part_a"] == "MUST":
+                dag.add_edge(rel["entity_a"], rel["entity_b"])
+            if rel["part_b"] == "MUST":
+                dag.add_edge(rel["entity_b"], rel["entity_a"])
+        if src_entity in dag:
+            ancestors = nx.ancestors(dag, src_entity)
+            if ancestors:
+                alignments = self.broker.ledger.get_alignments()
+                aligned_sources = {a["source_concept"].split('.')[0] if '.' in a["source_concept"] else a["source_concept"] for a in alignments}
+                for ancestor in ancestors:
+                    if ancestor not in aligned_sources:
+                        raise ValueError(f"RA Precedence Violation: Must align parent entity '{ancestor}' before aligning '{src_concept}'.")
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]{0,127}$")
 _CONCEPT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?$")
@@ -129,6 +158,11 @@ class EntigramMCPService:
         if not broker.warden.verify_integrity():
             return "Error: Invalid Schema Alignment - schema integrity check failed"
 
+        try:
+            RelationalAlgebraGuard(catalog, broker).validate_alignment_proposal(data["source_concept"], data["target_concept"])
+        except ValueError as e:
+            return f"Error: Invalid Schema Alignment - {str(e)}"
+
         ok = broker.ledger.record_alignment_proposal(
             source_domain=data["source_domain"],
             target_domain=data["target_domain"],
@@ -231,14 +265,24 @@ class EntigramMCPService:
 
     def _schema_catalog(self) -> Dict[str, Any]:
         entities: Dict[str, set] = {}
+        relationships = []
         schema_count = 0
         for path in self._schema_paths():
             schema_count += 1
-            parsed, _ = SchemaParser(path.read_text()).parse()
+            parsed, rels = SchemaParser(path.read_text()).parse()
             for name, entity in parsed.items():
                 attrs = entities.setdefault(name, set())
                 attrs.update(attr["name"] for attr in entity.attributes)
-        return {"schema_count": schema_count, "entities": entities}
+            for r in rels:
+                relationships.append({
+                    "entity_a": r.entity_a,
+                    "degree_a": r.degree_a,
+                    "part_a": r.part_a,
+                    "entity_b": r.entity_b,
+                    "degree_b": r.degree_b,
+                    "part_b": r.part_b,
+                })
+        return {"schema_count": schema_count, "entities": entities, "relationships": relationships}
 
     def _relative_path(self, path: Path) -> str:
         try:
