@@ -13,6 +13,14 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.4.0](https://github.com/nyabutid/entigram/compare/v1.3.3...v1.4.0) (2026-06-20)
+
+
+### Features
+
+* add zero-trust MCP server ([0c5e3a3](https://github.com/nyabutid/entigram/commit/0c5e3a358757239dacea081936a2abae62b1379f))
+* add zero-trust MCP server ([ee6f09c](https://github.com/nyabutid/entigram/commit/ee6f09c3fb4c89da41e3eecc8ca7cf952c31f98d))
+
 ## [1.3.3](https://github.com/nyabutid/entigram/compare/v1.3.2...v1.3.3) (2026-06-18)
 
 
