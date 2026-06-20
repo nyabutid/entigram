@@ -445,6 +445,20 @@ EXPECTATION: Change Impact Analysis {
   proof: python -m unittest tests.test_commissioner
 }
 
+EXPECTATION: Agent Policy Discoverability {
+  developer_expectation: Claude, Codex, Antigravity, Gemini, and other agents should discover the same Entigram governance policy before changing this repository.
+  implementation_rule: `.etg/agent_policy.md` must be the canonical policy, and agent-specific instruction files must point to it instead of duplicating conflicting handoff rules.
+  validation_check: python -m unittest tests.test_agent_policy
+  proof: python -m unittest tests.test_agent_policy
+}
+
+EXPECTATION: Deterministic Pre-Handoff Gate {
+  developer_expectation: Agents must leave the workspace in a current, auditable delivery state before handoff.
+  implementation_rule: The canonical policy must require hydrate/impact discovery, `broker guard`, optional `warden lock` before `broker deliver` when governed schema or ontology files changed, then `broker status`; it must forbid running `warden lock` after `broker deliver`.
+  validation_check: python -m unittest tests.test_agent_policy
+  proof: python -m unittest tests.test_agent_policy
+}
+
 /* Updated: 2026-05-20 Headless Antigravity engine execution via stdin piping support added */
 /* Updated: 2026-06-04 Entigram self-improvement loop modeled with expectations, evidence, evaluations, proposals, and lessons */
 /* Updated: 2026-06-04 Commissioner companion features: Entigram_Delivery_Snapshot, Blocked lifecycle, proof_capabilities, improvement proposals */
@@ -453,3 +467,4 @@ EXPECTATION: Change Impact Analysis {
 /* Updated: 2026-06-04 Out-of-the-box expectation guard added for agent pre-handoff verification */
 /* Updated: 2026-06-17 Release orchestration modeled for PyPI, Homebrew, standard packages, website/docs, and checksum verification */
 /* Updated: 2026-06-18 Release PR governance rules modeled for conventional commits, release-please eligibility, manual dispatch discipline, and immutable published versions */
+/* Updated: 2026-06-20 Canonical cross-agent governance policy modeled for discoverability and deterministic handoff */
