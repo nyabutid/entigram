@@ -61,10 +61,13 @@ def load_release_json(path: Path) -> dict[str, Any]:
 
 
 def select_sdist(release: dict[str, Any]) -> tuple[str, str]:
+    seen_files = []
     for file_info in release.get("urls", []):
+        filename = file_info.get("filename", "")
+        if filename:
+            seen_files.append(filename)
         if file_info.get("packagetype") != "sdist":
             continue
-        filename = file_info.get("filename", "")
         if not filename.endswith(".tar.gz"):
             continue
         sha256 = file_info.get("digests", {}).get("sha256")
@@ -72,7 +75,44 @@ def select_sdist(release: dict[str, Any]) -> tuple[str, str]:
         if url and sha256:
             return url, sha256
 
-    raise RuntimeError("PyPI metadata did not include a source .tar.gz with a sha256 digest")
+    files = ", ".join(seen_files) if seen_files else "none"
+    raise RuntimeError(
+        "PyPI metadata did not include a source .tar.gz with a sha256 digest "
+        f"(files seen: {files})"
+    )
+
+
+def load_pypi_sdist(
+    package_name: str,
+    version: str,
+    *,
+    attempts: int = 18,
+    sleep_seconds: int = 10,
+) -> tuple[str, str]:
+    """Wait for PyPI release metadata to expose the uploaded source archive."""
+    last_error: Exception | None = None
+
+    for attempt in range(1, attempts + 1):
+        try:
+            release = load_pypi_release(package_name, version, attempts=1)
+            return select_sdist(release)
+        except Exception as exc:  # pragma: no cover - retry path is unit-tested with mocks
+            last_error = exc
+            if attempt == attempts:
+                break
+            print(
+                f"PyPI sdist metadata for {package_name}=={version} not ready "
+                f"({exc}); retrying in {sleep_seconds}s "
+                f"({attempt}/{attempts})...",
+                file=sys.stderr,
+            )
+            time.sleep(sleep_seconds)
+
+    raise RuntimeError(
+        f"Could not find PyPI sdist metadata for {package_name}=={version} "
+        f"after {attempts} attempts: {last_error}"
+    )
+
 
 
 def update_formula_source(formula_path: Path, source_url: str, sha256: str) -> None:
@@ -179,15 +219,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.pypi_json:
         release = load_release_json(args.pypi_json)
+        source_url, sha256 = select_sdist(release)
     else:
-        release = load_pypi_release(
+        source_url, sha256 = load_pypi_sdist(
             args.package_name,
             args.version,
             attempts=args.attempts,
             sleep_seconds=args.sleep_seconds,
         )
 
-    source_url, sha256 = select_sdist(release)
     update_formula_source(args.formula, source_url, sha256)
     update_resources(args.formula, args.package_name, args.version)
     print(f"Updated {args.formula} to {source_url}")
