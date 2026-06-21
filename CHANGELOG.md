@@ -13,6 +13,15 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.7.7](https://github.com/nyabutid/entigram/compare/v1.7.6...v1.7.7) (2026-06-21)
+
+
+### Bug Fixes
+
+* include setuptools in Homebrew resources ([2e364e4](https://github.com/nyabutid/entigram/commit/2e364e463e8d9e07b86f1a75f2b20f38a22aff3c))
+* remove vulnerable ecdsa dependency ([11e5fa7](https://github.com/nyabutid/entigram/commit/11e5fa7cf002c7767e902d19806429623ed376cc))
+* remove vulnerable ecdsa dependency ([8e5df53](https://github.com/nyabutid/entigram/commit/8e5df53b5e6621be5bc15f97dc466d034a88a14f))
+
 ## [1.7.6](https://github.com/nyabutid/entigram/compare/v1.7.5...v1.7.6) (2026-06-21)
 
 
