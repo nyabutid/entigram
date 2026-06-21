@@ -13,6 +13,14 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.7.6](https://github.com/nyabutid/entigram/compare/v1.7.5...v1.7.6) (2026-06-21)
+
+
+### Bug Fixes
+
+* wait for PyPI sdist metadata ([cead15e](https://github.com/nyabutid/entigram/commit/cead15e25ffb4ef12973175c63b391081ffd0176))
+* wait for PyPI sdist metadata ([c835b42](https://github.com/nyabutid/entigram/commit/c835b42df0083316970b8011dc1a61314b526e85))
+
 ## [1.7.5](https://github.com/nyabutid/entigram/compare/v1.7.4...v1.7.5) (2026-06-21)
 
 
