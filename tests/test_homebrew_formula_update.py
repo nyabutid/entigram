@@ -68,6 +68,70 @@ end
             ("https://example.test/sdist", "sdist"),
         )
 
+    def test_select_sdist_reports_files_seen_when_missing(self):
+        release = {
+            "urls": [
+                {
+                    "packagetype": "bdist_wheel",
+                    "filename": "entigram_ai-1.7.5-py3-none-any.whl",
+                    "digests": {"sha256": "wheel"},
+                    "url": "https://example.test/wheel",
+                }
+            ]
+        }
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "entigram_ai-1.7.5-py3-none-any.whl",
+        ):
+            update_homebrew_formula.select_sdist(release)
+
+    def test_load_pypi_sdist_retries_until_source_metadata_is_visible(self):
+        wheel_only = {
+            "urls": [
+                {
+                    "packagetype": "bdist_wheel",
+                    "filename": "entigram_ai-1.7.5-py3-none-any.whl",
+                    "digests": {"sha256": "wheel"},
+                    "url": "https://example.test/wheel",
+                }
+            ]
+        }
+        with_sdist = {
+            "urls": [
+                {
+                    "packagetype": "sdist",
+                    "filename": "entigram_ai-1.7.5.tar.gz",
+                    "digests": {"sha256": "sdist"},
+                    "url": "https://example.test/sdist",
+                }
+            ]
+        }
+        releases = [wheel_only, with_sdist]
+        sleeps = []
+        original_loader = update_homebrew_formula.load_pypi_release
+        original_sleep = update_homebrew_formula.time.sleep
+
+        def fake_loader(package_name, version, *, attempts=12, sleep_seconds=10):
+            return releases.pop(0)
+
+        try:
+            update_homebrew_formula.load_pypi_release = fake_loader
+            update_homebrew_formula.time.sleep = sleeps.append
+
+            result = update_homebrew_formula.load_pypi_sdist(
+                "entigram-ai",
+                "1.7.5",
+                attempts=2,
+                sleep_seconds=0,
+            )
+        finally:
+            update_homebrew_formula.load_pypi_release = original_loader
+            update_homebrew_formula.time.sleep = original_sleep
+
+        self.assertEqual(result, ("https://example.test/sdist", "sdist"))
+        self.assertEqual(sleeps, [0])
+
     def test_filters_rust_backed_resources_to_native_dependencies(self):
         resources = '''resource "pydantic" do
   url "https://files.pythonhosted.org/packages/pydantic.tar.gz"
