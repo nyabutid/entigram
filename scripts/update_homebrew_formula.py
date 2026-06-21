@@ -86,8 +86,23 @@ def update_resources(formula_path: Path, package_name: str, version: str) -> Non
     result = subprocess.run([".poet-venv/bin/poet", package_name], capture_output=True, text=True, check=True)
     resources_text = result.stdout.strip()
     
-    text = formula_path.read_text()
+    # Filter out cryptography and its C dependencies (maturin/rust issues in Homebrew)
+    # We instead inject 'depends_on "cryptography"' directly into the formula.
+    filtered_lines = []
+    skip_mode = False
+    for line in resources_text.splitlines():
+        if re.match(r'^\s*resource "(cryptography|cffi|pycparser)" do', line):
+            skip_mode = True
+        if not skip_mode:
+            filtered_lines.append(line)
+        if skip_mode and line.strip() == "end":
+            skip_mode = False
     
+    # Clean up empty lines that might have been left behind
+    cleaned_resources_text = "\n".join([line for line in filtered_lines if line.strip() or line == ""])
+
+    text = formula_path.read_text()
+
     # We want to replace everything between 'depends_on "python@3.12"' and 'def install'
     start_marker = 'depends_on "python@3.12"\n'
     end_marker = '  def install\n'
@@ -100,8 +115,8 @@ def update_resources(formula_path: Path, package_name: str, version: str) -> Non
         
     start_idx += len(start_marker)
     
-    # Indent the resources text properly
-    indented_resources = "\n" + "\n".join("  " + line if line else "" for line in resources_text.splitlines()) + "\n\n"
+    # Indent the resources text properly and inject Homebrew's cryptography dependency
+    indented_resources = '\n  depends_on "cryptography"\n\n' + "\n".join("  " + line if line else "" for line in cleaned_resources_text.splitlines()) + "\n\n"
     
     updated_text = text[:start_idx] + indented_resources + text[end_idx:]
     formula_path.write_text(updated_text)
