@@ -102,7 +102,7 @@ ATTRIBUTES:
         self.assertTrue(success)
         self.assertIn("Audit bundle", output)
         self.assertIn("SHA-256", output)
-        self.assertIn("Signature: ed25519", output)
+        self.assertIn("Signature: ecdsa", output)
         self.assertIn("Signing key:", output)
         self.assertTrue(Path("audit.json").exists())
 

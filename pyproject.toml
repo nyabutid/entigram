@@ -24,7 +24,7 @@ dependencies = [
     "protobuf>=5.26.1",
     "requests",
     "mcp>=1.0.0",
-    "cryptography>=42.0.0"
+    "ecdsa"
 ]
 
 [project.optional-dependencies]

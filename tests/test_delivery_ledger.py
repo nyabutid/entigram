@@ -321,14 +321,15 @@ class TestBrokerDeliverySnapshots(unittest.TestCase):
                 ledger.close()
             shutil.rmtree(test_dir)
 
-    def test_export_audit_bundle_has_ed25519_signature(self):
+    def test_export_audit_bundle_has_ecdsa_signature(self):
         import base64
         import json
+        import hashlib
         import tempfile
         import shutil
         from pathlib import Path
 
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+        import ecdsa
 
         from entigram.broker import EntigramBroker
         from entigram.injector import inject_entigram_manifest
@@ -348,7 +349,7 @@ class TestBrokerDeliverySnapshots(unittest.TestCase):
             bundle = broker.export_audit_bundle("audit.json")
 
             self.assertTrue(bundle["ok"])
-            self.assertEqual(bundle["signature"]["type"], "ed25519")
+            self.assertEqual(bundle["signature"]["type"], "ecdsa")
             self.assertEqual(bundle["payload"]["bundle_type"], "entigram.audit_bundle.v1")
             self.assertEqual(bundle["payload"]["delivery_status"]["status"], "current")
             self.assertTrue(Path(bundle["signing_key_path"]).exists())
@@ -359,8 +360,10 @@ class TestBrokerDeliverySnapshots(unittest.TestCase):
                 sort_keys=True,
                 separators=(",", ":"),
             ).encode("utf-8")
-            public_key = Ed25519PublicKey.from_public_bytes(
-                base64.b64decode(bundle["signature"]["public_key"])
+            public_key = ecdsa.VerifyingKey.from_string(
+                base64.b64decode(bundle["signature"]["public_key"]),
+                curve=ecdsa.NIST256p,
+                hashfunc=hashlib.sha256,
             )
             public_key.verify(
                 base64.b64decode(bundle["signature"]["value"]),
