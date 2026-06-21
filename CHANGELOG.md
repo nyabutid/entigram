@@ -13,6 +13,20 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.7.0](https://github.com/nyabutid/entigram/compare/v1.6.0...v1.7.0) (2026-06-21)
+
+
+### Features
+
+* sign audit bundles and clarify versions ([be12d03](https://github.com/nyabutid/entigram/commit/be12d0357b1098abe7426b534bbc10a9c3c208e3))
+
+
+### Bug Fixes
+
+* dynamically read version from pyproject.toml in tests ([309c43d](https://github.com/nyabutid/entigram/commit/309c43d89e0314e6a08d1eb519678ece52bf681d))
+* sync requirements.txt for CI build ([cf01b76](https://github.com/nyabutid/entigram/commit/cf01b760ff4e1a0a2e60f06d49ced56e97e2906d))
+* update hardcoded version 1.6.0 to 1.7.0 in tests ([4c5c7d9](https://github.com/nyabutid/entigram/commit/4c5c7d9be24a5c05e72844c43b68ca0b5c6b8c0b))
+
 ## [1.6.0](https://github.com/nyabutid/entigram/compare/v1.5.0...v1.6.0) (2026-06-21)
 
 ### Features
