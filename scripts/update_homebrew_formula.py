@@ -17,6 +17,20 @@ from typing import Any
 FORMULA_SOURCE_RE = re.compile(
     r'(?m)^(  url ")[^"]+\.tar\.gz("\n  sha256 ")[0-9a-f]{64}(")$'
 )
+RESOURCE_RE = re.compile(r'^\s*resource "([^"]+)" do')
+NATIVE_DEPENDENCY_BY_RESOURCE = {
+    "cryptography": "cryptography",
+    "cffi": "cffi",
+    "pycparser": "pycparser",
+    "pydantic": "pydantic",
+    "pydantic-core": "pydantic",
+    "pydantic_core": "pydantic",
+    "annotated-types": "pydantic",
+    "annotated_types": "pydantic",
+    "rpds-py": "rpds-py",
+    "rpds_py": "rpds-py",
+}
+DEPENDENCY_ORDER = ["cryptography", "cffi", "pycparser", "pydantic", "rpds-py"]
 
 
 def load_pypi_release(
@@ -74,6 +88,52 @@ def update_formula_source(formula_path: Path, source_url: str, sha256: str) -> N
     formula_path.write_text(updated)
 
 
+def filter_native_resources(resources_text: str) -> tuple[str, list[str]]:
+    """
+    Removes poet resource blocks that Homebrew should satisfy with bottled
+    native formulas instead of source-building Rust/C extensions in the etg
+    virtualenv.
+    """
+    filtered_lines = []
+    native_deps = set()
+    skip_mode = False
+
+    for line in resources_text.splitlines():
+        match = RESOURCE_RE.match(line)
+        if match:
+            resource_name = match.group(1)
+            native_dep = NATIVE_DEPENDENCY_BY_RESOURCE.get(resource_name)
+            if native_dep:
+                native_deps.add(native_dep)
+                skip_mode = True
+
+        if not skip_mode:
+            filtered_lines.append(line)
+
+        if skip_mode and line.strip() == "end":
+            skip_mode = False
+
+    cleaned_resources_text = "\n".join(
+        line for line in filtered_lines if line.strip() or line == ""
+    )
+    ordered_deps = [dep for dep in DEPENDENCY_ORDER if dep in native_deps]
+    return cleaned_resources_text, ordered_deps
+
+
+def render_dependency_block(native_deps: list[str], resources_text: str) -> str:
+    depends_lines = [f'  depends_on "{dep}"' for dep in native_deps]
+    indented_resources = [
+        "  " + line if line else ""
+        for line in resources_text.splitlines()
+    ]
+    sections = []
+    if depends_lines:
+        sections.append("\n".join(depends_lines))
+    if indented_resources:
+        sections.append("\n".join(indented_resources))
+    return "\n" + "\n\n".join(sections) + "\n\n"
+
+
 def update_resources(formula_path: Path, package_name: str, version: str) -> None:
     # Use poet to get the resources
     print("Installing package and poet in a temporary virtualenv...")
@@ -85,21 +145,7 @@ def update_resources(formula_path: Path, package_name: str, version: str) -> Non
     print("Generating resources with poet...")
     result = subprocess.run([".poet-venv/bin/poet", package_name], capture_output=True, text=True, check=True)
     resources_text = result.stdout.strip()
-    
-    # Filter out cryptography and its C dependencies (maturin/rust issues in Homebrew)
-    # We instead inject 'depends_on "cryptography"' directly into the formula.
-    filtered_lines = []
-    skip_mode = False
-    for line in resources_text.splitlines():
-        if re.match(r'^\s*resource "(cryptography|cffi|pycparser)" do', line):
-            skip_mode = True
-        if not skip_mode:
-            filtered_lines.append(line)
-        if skip_mode and line.strip() == "end":
-            skip_mode = False
-    
-    # Clean up empty lines that might have been left behind
-    cleaned_resources_text = "\n".join([line for line in filtered_lines if line.strip() or line == ""])
+    cleaned_resources_text, native_deps = filter_native_resources(resources_text)
 
     text = formula_path.read_text()
 
@@ -115,8 +161,8 @@ def update_resources(formula_path: Path, package_name: str, version: str) -> Non
         
     start_idx += len(start_marker)
     
-    # Indent the resources text properly and inject Homebrew's cryptography dependency
-    indented_resources = '\n  depends_on "cryptography"\n\n' + "\n".join("  " + line if line else "" for line in cleaned_resources_text.splitlines()) + "\n\n"
+    # Indent the resources text properly and inject Homebrew's bottled dependencies.
+    indented_resources = render_dependency_block(native_deps, cleaned_resources_text)
     
     updated_text = text[:start_idx] + indented_resources + text[end_idx:]
     formula_path.write_text(updated_text)
