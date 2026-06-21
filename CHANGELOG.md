@@ -13,6 +13,14 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.7.8](https://github.com/nyabutid/entigram/compare/v1.7.7...v1.7.8) (2026-06-21)
+
+
+### Bug Fixes
+
+* align Homebrew formula Python runtime ([fd10640](https://github.com/nyabutid/entigram/commit/fd1064089fb4d6deed718eaad47e767710365689))
+* align Homebrew formula Python runtime ([7da8056](https://github.com/nyabutid/entigram/commit/7da80568c31f52d66853199e1b845b4d027a762a))
+
 ## [1.7.7](https://github.com/nyabutid/entigram/compare/v1.7.6...v1.7.7) (2026-06-21)
 
 
