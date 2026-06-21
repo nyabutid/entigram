@@ -13,6 +13,14 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.8.0](https://github.com/nyabutid/entigram/compare/v1.7.8...v1.8.0) (2026-06-21)
+
+
+### Features
+
+* implement Cloud API package fetching using ENTIGRAM_TOKEN ([17f7ecf](https://github.com/nyabutid/entigram/commit/17f7ecf0fbb30af484e21a57746e24d8c9e679a7))
+* implement Cloud API package fetching using ENTIGRAM_TOKEN ([83e6f84](https://github.com/nyabutid/entigram/commit/83e6f840b26629190856c16e415e2db7f3226fe1))
+
 ## [1.7.8](https://github.com/nyabutid/entigram/compare/v1.7.7...v1.7.8) (2026-06-21)
 
 
