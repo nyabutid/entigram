@@ -31,6 +31,10 @@ NATIVE_DEPENDENCY_BY_RESOURCE = {
     "rpds_py": "rpds-py",
 }
 DEPENDENCY_ORDER = ["cryptography", "cffi", "pycparser", "pydantic", "rpds-py"]
+SETUPTOOLS_RESOURCE = '''resource "setuptools" do
+  url "https://files.pythonhosted.org/packages/4f/db/cfac1baf10650ab4d1c111714410d2fbb77ac5a616db26775db562c8fab2/setuptools-82.0.1.tar.gz"
+  sha256 "7d872682c5d01cfde07da7bccc7b65469d3dca203318515ada1de5eda35efbf9"
+end'''
 
 
 def package_resource_names(package_name: str) -> set[str]:
@@ -177,6 +181,8 @@ def filter_native_resources(
 
 def render_dependency_block(native_deps: list[str], resources_text: str) -> str:
     depends_lines = [f'  depends_on "{dep}"' for dep in native_deps]
+    if 'resource "setuptools" do' not in resources_text:
+        resources_text = SETUPTOOLS_RESOURCE + ("\n\n" + resources_text if resources_text else "")
     indented_resources = [
         "  " + line if line else ""
         for line in resources_text.splitlines()

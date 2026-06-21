@@ -198,6 +198,7 @@ end
         self.assertIn('  depends_on "pydantic"', block)
         self.assertIn('  depends_on "rpds-py"', block)
         self.assertNotIn('depends_on "cryptography"', block)
+        self.assertIn('  resource "setuptools" do', block)
         self.assertIn('  resource "httpx" do', block)
 
     def test_update_resources_replaces_resource_section_without_rust_resources(self):
@@ -253,6 +254,7 @@ end
             updated = formula_path.read_text()
 
         self.assertIn('depends_on "pydantic"', updated)
+        self.assertIn('resource "setuptools"', updated)
         self.assertNotIn('resource "entigram-ai"', updated)
         self.assertNotIn('resource "pydantic_core"', updated)
         self.assertIn('resource "httpx"', updated)
