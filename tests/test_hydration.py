@@ -56,8 +56,12 @@ class TestHydration(unittest.TestCase):
             self.assertIn("--- ENTIGRAM HYDRATION SEQUENCE ---", output)
             self.assertIn("--- SEQUENCE COMPLETE ---", output)
             self.assertIn("ENTIGRAM_BOOT_VECTOR", output)
-            self.assertIn('"version": "1.7.0"', output)
-            self.assertIn('"package_version": "1.7.0"', output)
+            import re
+            from pathlib import Path
+            pyproject = (Path(__file__).parent.parent / "pyproject.toml").read_text()
+            version = re.search(r'version = "(.*?)"', pyproject).group(1)
+            self.assertIn(f'"version": "{version}"', output)
+            self.assertIn(f'"package_version": "{version}"', output)
             self.assertIn('"workspace_schema_version": 1', output)
             self.assertIn("DomainA", output)
             self.assertIn("DomainB", output)

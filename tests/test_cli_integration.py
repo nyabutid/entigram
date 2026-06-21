@@ -50,7 +50,11 @@ class TestCLIIntegration(unittest.TestCase):
     def test_version_flag(self):
         success, output = self.run_cli(['--version'])
         self.assertTrue(success)
-        self.assertIn("etg 1.7.0", output)
+        import re
+        from pathlib import Path
+        pyproject = (Path(__file__).parent.parent / "pyproject.toml").read_text()
+        version = re.search(r'version = "(.*?)"', pyproject).group(1)
+        self.assertIn(f"etg {version}", output)
 
     def test_config_command(self):
         # First initialize
