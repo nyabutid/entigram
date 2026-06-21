@@ -6,3 +6,6 @@ networkx              # For local graph/Schema logic processing
 inflect<7.3.0         # For robust pluralization/singularization
 protobuf>=5.26.1      # Ensure modern protobuf for C-extension compatibility
 pycozo
+requests
+mcp>=1.0.0
+cryptography>=42.0.0
