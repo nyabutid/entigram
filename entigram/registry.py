@@ -64,8 +64,8 @@ class EntigramRegistry:
             return False
 
     def _get_auth_url(self, url: str) -> str:
-        """Injects ENTIGRAM_GIT_TOKEN into HTTPS URLs if present."""
-        token = os.environ.get("ENTIGRAM_GIT_TOKEN")
+        """Injects ENTIGRAM_TOKEN into HTTPS URLs if present."""
+        token = os.environ.get("ENTIGRAM_TOKEN")
         if token and url.startswith("https://"):
             # Ensure we don't double-inject if it already has credentials
             if "@" not in url.split("://")[1]:
@@ -129,9 +129,46 @@ class EntigramRegistry:
         # Managed, high-availability delivery of semantic mappings.
         print(f"🌐 [ENTIGRAM CLOUD] Resolving '{package_name}' via API: {api_url}")
         
-        # For now, we return None to fall back to Git if the API is 'offline' (not implemented)
-        # but the infrastructure is now in place.
-        return None
+        token = os.environ.get("ENTIGRAM_TOKEN")
+        if not token:
+            print("❌ ENTIGRAM_TOKEN is not set for Cloud API. Set it to download premium packages.")
+            return None
+
+        package_url = f"{api_url}/packages/{package_name}"
+        
+        try:
+            import urllib.request
+            import tarfile
+            
+            req = urllib.request.Request(
+                package_url, 
+                headers={
+                    "Authorization": token,
+                    "User-Agent": "Entigram-CLI/1.0"
+                }
+            )
+            with urllib.request.urlopen(req) as response:
+                if response.status == 200:
+                    cache_path.mkdir(parents=True, exist_ok=True)
+                    tar_path = cache_path / "package.tar.gz"
+                    with open(tar_path, "wb") as f:
+                        f.write(response.read())
+                    
+                    extract_dir = cache_path / package_name
+                    if extract_dir.exists():
+                        shutil.rmtree(extract_dir)
+                    extract_dir.mkdir(parents=True, exist_ok=True)
+                    
+                    with tarfile.open(tar_path, "r:gz") as tar:
+                        tar.extractall(path=extract_dir)
+                    
+                    return cache_path
+                else:
+                    print(f"❌ Failed to fetch from API: HTTP {response.status}")
+                    return None
+        except Exception as e:
+            print(f"❌ API Fetch Error: {e}")
+            return None
 
     def install_package(self, package_name: str) -> bool:
         """
