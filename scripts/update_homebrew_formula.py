@@ -78,7 +78,9 @@ def update_resources(formula_path: Path, package_name: str, version: str) -> Non
     # Use poet to get the resources
     print("Installing package and poet in a temporary virtualenv...")
     subprocess.run([sys.executable, "-m", "venv", ".poet-venv"], check=True)
-    subprocess.run([".poet-venv/bin/pip", "install", f"{package_name}=={version}", "homebrew-pypi-poet", "setuptools<70"], check=True)
+    # Install from the local repository root instead of PyPI to avoid race conditions
+    repo_root = str(Path(__file__).resolve().parent.parent)
+    subprocess.run([".poet-venv/bin/pip", "install", repo_root, "homebrew-pypi-poet", "setuptools<70"], check=True)
     
     print("Generating resources with poet...")
     result = subprocess.run([".poet-venv/bin/poet", package_name], capture_output=True, text=True, check=True)
