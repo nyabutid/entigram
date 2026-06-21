@@ -321,6 +321,73 @@ class TestBrokerDeliverySnapshots(unittest.TestCase):
                 ledger.close()
             shutil.rmtree(test_dir)
 
+    def test_export_audit_bundle_has_tamper_evident_digest(self):
+        import tempfile
+        import shutil
+        from pathlib import Path
+
+        from entigram.broker import EntigramBroker
+        from entigram.injector import inject_entigram_manifest
+
+        test_dir = tempfile.mkdtemp()
+        ledger = None
+        try:
+            inject_entigram_manifest(test_dir, ["Entigram Schemas"], "Codex")
+            Path(test_dir, "schema.lds").write_text(self.SCHEMA)
+            ledger = LedgerManager(":memory:")
+            broker = EntigramBroker(test_dir, ledger=ledger)
+
+            broker.commission_and_record(
+                proofs=["tests/test_loop.py passed"],
+                agent_id="TestAgent",
+            )
+            bundle = broker.export_audit_bundle("audit.json")
+
+            self.assertTrue(bundle["ok"])
+            self.assertEqual(bundle["sha256"], bundle["signature"]["value"])
+            self.assertEqual(bundle["signature"]["type"], "sha256-canonical-json")
+            self.assertEqual(bundle["payload"]["bundle_type"], "entigram.audit_bundle.v1")
+            self.assertEqual(bundle["payload"]["delivery_status"]["status"], "current")
+            self.assertTrue(Path(test_dir, "audit.json").exists())
+        finally:
+            if ledger is not None:
+                ledger.close()
+            shutil.rmtree(test_dir)
+
+    def test_trust_score_labels_intentional_schema_change(self):
+        import tempfile
+        import shutil
+        from pathlib import Path
+
+        from entigram.broker import EntigramBroker
+        from entigram.injector import inject_entigram_manifest
+
+        test_dir = tempfile.mkdtemp()
+        ledger = None
+        try:
+            inject_entigram_manifest(test_dir, ["Entigram Schemas"], "Codex")
+            Path(test_dir, "schema.lds").write_text(self.SCHEMA)
+            ledger = LedgerManager(":memory:")
+            broker = EntigramBroker(test_dir, ledger=ledger)
+
+            first = broker.commission_and_record(proofs=["tests/test_loop.py passed"])
+            self.assertEqual(
+                first["trust_score"]["breakdown"]["schema_change"],
+                "initial_baseline",
+            )
+
+            Path(test_dir, "schema.lds").write_text(self.SCHEMA + "\nENTITY: Extra\n")
+            second = broker.commission_and_record(proofs=["tests/test_loop.py passed"])
+            self.assertEqual(
+                second["trust_score"]["breakdown"]["schema_change"],
+                "changed_and_anchored",
+            )
+            self.assertGreaterEqual(second["trust_score"]["score"], 0.9)
+        finally:
+            if ledger is not None:
+                ledger.close()
+            shutil.rmtree(test_dir)
+
     def test_delivery_status_reports_current_snapshot(self):
         import tempfile
         import shutil

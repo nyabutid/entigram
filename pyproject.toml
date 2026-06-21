@@ -17,7 +17,6 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "streamlit>=1.35.0",
     "pysqlite3",
     "pyyaml",
     "networkx",
@@ -25,6 +24,11 @@ dependencies = [
     "protobuf>=5.26.1",
     "requests",
     "mcp>=1.0.0"
+]
+
+[project.optional-dependencies]
+ui = [
+    "streamlit>=1.35.0",
 ]
 
 [project.urls]

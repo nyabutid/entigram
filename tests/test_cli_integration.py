@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import yaml
 from io import StringIO
+from pathlib import Path
 from unittest.mock import patch
 from entigram.cli_runner.etg_cli import main
 
@@ -74,6 +75,23 @@ ATTRIBUTES:
             success, output = self.run_cli(['build', '--format', 'sql'])
             self.assertTrue(success)
             self.assertIn("CREATE TABLE", output)
+
+    def test_broker_export_audit_command(self):
+        self.run_cli(['init', '--dir', '.', '--force'])
+        with open("schema.lds", "w") as f:
+            f.write("""
+ENTITY: Test
+ATTRIBUTES:
+  - id (String, PK)
+""")
+
+        self.run_cli(['broker', 'deliver'])
+        success, output = self.run_cli(['broker', 'export-audit', '--out', 'audit.json'])
+
+        self.assertTrue(success)
+        self.assertIn("Audit bundle", output)
+        self.assertIn("SHA-256", output)
+        self.assertTrue(Path("audit.json").exists())
 
     def test_interview_command_init_check(self):
         # Test interview without init (should fail gracefully)
@@ -147,7 +165,9 @@ ATTRIBUTES:
         success, output = self.run_cli(['ui'])
         self.assertFalse(success)
         self.assertIn("Streamlit is not installed", output)
-        self.assertIn("pipx install entigram-ai", output)
+        self.assertIn("headless by default", output)
+        self.assertIn("pipx install 'entigram-ai[ui]'", output)
+        self.assertIn("pipx inject entigram-ai streamlit", output)
 
 if __name__ == "__main__":
     unittest.main()

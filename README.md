@@ -24,6 +24,12 @@ Enterprise agent adoption fails when agents lack trustworthy domain context and 
 - **Agent Hydration:** Boot agents with exact project state, schemas, alignments, and settled decisions.
 - **Auditability:** Store every alignment and decision in a local SQLite ledger for full provenance and governance.
 
+## Core Workflow
+
+1. **Model** the entities, attributes, and relationships agents are allowed to know.
+2. **Gate** every proposed alignment, conflict, and state transition through MCP/CLI tools.
+3. **Audit** accepted work with ledger evidence, delivery snapshots, and tamper-evident bundles.
+
 ## 🚀 Quickstart
 
 ### 1. Initialize a Governance Workspace
@@ -84,6 +90,36 @@ etg broker guard
 etg broker deliver
 etg broker status
 ```
+
+Export a tamper-evident audit bundle:
+```bash
+etg broker export-audit --out entigram-audit.json
+```
+
+For the complete MCP tool contract, see [`docs/mcp-tools.md`](docs/mcp-tools.md).
+
+Run the local Immutable Gate smoke demo:
+```bash
+python3 scripts/demo_immutable_gate.py
+```
+
+### Optional Dashboard
+
+`etg ui` requires Streamlit. The CLI/MCP runtime is headless by default.
+
+For pipx:
+```bash
+pipx install 'entigram-ai[ui]'
+```
+
+For an existing pipx install:
+```bash
+pipx inject entigram-ai streamlit
+```
+
+Homebrew installs are optimized for the CLI/MCP path. If `etg ui` reports that
+Streamlit is missing, that is expected unless the dashboard dependency has been
+installed into the same Python environment.
 
 ## 🏗️ How it Fits
 

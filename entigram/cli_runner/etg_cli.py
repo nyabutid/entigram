@@ -141,7 +141,10 @@ def launch_ui(target_dir=None):
     import subprocess
     if importlib.util.find_spec("streamlit") is None:
         print("❌ Streamlit is not installed in this environment.")
-        print("Install the UI-enabled Python package to use the dashboard: pipx install entigram-ai")
+        print("The CLI/MCP runtime is headless by default.")
+        print("For pipx installs: pipx install 'entigram-ai[ui]'")
+        print("For an existing pipx install: pipx inject entigram-ai streamlit")
+        print("For Homebrew installs, run the MCP/CLI normally or install the UI with pipx.")
         return False
 
     ui_path = Path(__file__).parent.parent / "ui" / "app.py"
@@ -435,6 +438,13 @@ def main():
         help="Role to apply to --artifact entries",
     )
     status_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
+
+    audit_parser = broker_subparsers.add_parser(
+        "export-audit",
+        help="Export a tamper-evident JSON audit bundle for the current workspace",
+    )
+    audit_parser.add_argument("--out", help="Output path for the audit bundle JSON")
+    audit_parser.add_argument("--json", action="store_true", dest="json_output", help="Print full bundle as JSON")
 
     resolve_parser = broker_subparsers.add_parser(
         "resolve",
@@ -1088,7 +1098,10 @@ RELATIONSHIPS:
                     print(f"🎯 Trust score: {score:.0%} (Grade {grade})")
                     bkd = ts.get("breakdown", {})
                     for k, v in bkd.items():
-                        print(f"   {k}: {v:.0%}")
+                        if isinstance(v, (int, float)):
+                            print(f"   {k}: {v:.0%}")
+                        else:
+                            print(f"   {k}: {v}")
                     print("✅ Handoff gate: PASSED. This delivery is anchored.")
                 else:
                     ts = result.get("trust_score", {})
@@ -1108,6 +1121,15 @@ RELATIONSHIPS:
                 print(broker.format_delivery_status(result))
             if result.get("needs_recommission"):
                 sys.exit(1)
+        elif args.broker_command == "export-audit":
+            bundle = broker.export_audit_bundle(out_path=getattr(args, "out", None))
+            if args.json_output:
+                print(json.dumps(bundle, indent=2, sort_keys=True))
+            else:
+                if bundle.get("path"):
+                    print(f"📦 Audit bundle: {bundle['path']}")
+                print(f"🔏 SHA-256: {bundle['sha256']}")
+                print("Signature: sha256-canonical-json (tamper-evident digest)")
         elif args.broker_command == "resolve":
             # Run missing proof commands and record outcomes
             checklist = broker.commission()

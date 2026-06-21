@@ -3,12 +3,13 @@ import json
 import sqlite3
 import hashlib
 import mimetypes
+import platform
 from itertools import combinations
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
 from .sqlite_ledger.manager import LedgerManager
 from .sqlite_ledger.paths import resolve_ledger_path
-from datetime import datetime
+from datetime import datetime, timezone
 from .governance.warden import Warden
 
 class EntigramBroker:
@@ -418,17 +419,22 @@ class EntigramBroker:
         else:
             breakdown["warden_intact"] = 0.0
 
-        # 3. Schema stability (hash matches last snapshot)
+        # 3. Schema continuity (hash matches last snapshot or this delivery
+        # intentionally establishes a new baseline)
         last_snap = self.ledger.get_latest_snapshot()
         if last_snap and schema_hash and last_snap.get("schema_hash") == schema_hash:
             score += 0.20
             breakdown["schema_stable"] = 0.20
+            breakdown["schema_change"] = "unchanged"
         elif not last_snap:
             # First delivery — no prior baseline; give benefit of the doubt
-            score += 0.10
-            breakdown["schema_stable"] = 0.10  # partial
+            score += 0.20
+            breakdown["schema_stable"] = 0.20
+            breakdown["schema_change"] = "initial_baseline"
         else:
-            breakdown["schema_stable"] = 0.0
+            score += 0.10
+            breakdown["schema_stable"] = 0.10
+            breakdown["schema_change"] = "changed_and_anchored"
 
         # 4. Ledger evidence for each passing expectation
         passing_items = [i for i in checklist.get("items", []) if i["status"] == "passed"]
@@ -456,6 +462,63 @@ class EntigramBroker:
             ),
             "breakdown": breakdown,
         }
+
+    def export_audit_bundle(self, out_path: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Exports a deterministic, content-addressed audit bundle for the current
+        workspace. The SHA-256 digest is computed over canonical JSON and can
+        be used to detect tampering after export.
+        """
+        manifest_path = self.target_dir / ".etg" / "entigram.yaml"
+        manifest = {}
+        if manifest_path.exists():
+            try:
+                import yaml
+                manifest = yaml.safe_load(manifest_path.read_text()) or {}
+            except Exception as exc:
+                manifest = {"error": f"failed to read manifest: {exc}"}
+
+        snapshot = self.ledger.get_latest_snapshot()
+        artifact_ids = snapshot.get("artifact_ids", []) if snapshot else []
+        payload = {
+            "bundle_type": "entigram.audit_bundle.v1",
+            "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+            "project_dir": str(self.target_dir),
+            "environment": {
+                "python": platform.python_version(),
+                "platform": platform.platform(),
+            },
+            "manifest": manifest,
+            "delivery_status": self.delivery_status(),
+            "latest_snapshot": snapshot,
+            "delivery_evidence": self.ledger.get_delivery_evidence(limit=500),
+            "delivery_artifacts": self.ledger.get_delivery_artifacts_by_ids(artifact_ids),
+            "semantic_alignments": self.ledger.get_alignments(trusted_only=False),
+            "pending_conflicts": self.ledger.get_pending_conflicts(),
+            "resolutions": self.ledger.get_all_resolutions(),
+        }
+        canonical_payload = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        digest = hashlib.sha256(canonical_payload.encode("utf-8")).hexdigest()
+        bundle = {
+            "ok": True,
+            "sha256": digest,
+            "signature": {
+                "type": "sha256-canonical-json",
+                "value": digest,
+                "note": "Tamper-evident content digest; not a public-key signature.",
+            },
+            "payload": payload,
+        }
+
+        if out_path:
+            destination = Path(out_path).expanduser()
+            if not destination.is_absolute():
+                destination = self.target_dir / destination
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(json.dumps(bundle, indent=2, sort_keys=True))
+            bundle["path"] = str(destination)
+
+        return bundle
 
     def commission_and_record(
         self,

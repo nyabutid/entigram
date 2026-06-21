@@ -473,6 +473,34 @@ EXPECTATION: Machine-Readable MCP Gate Responses {
   proof: python -m unittest tests.test_mcp_service
 }
 
+EXPECTATION: MCP Tool Contract Documentation {
+  developer_expectation: Agent maintainers should be able to integrate with Entigram MCP tools without reverse-engineering tests or source code.
+  implementation_rule: The repository must ship `docs/mcp-tools.md` with request and response examples for `etg_get_schemas`, `etg_propose_alignment`, and `etg_log_conflict`.
+  validation_check: python -m unittest tests.test_entigram_self_improvement_model
+  proof: python -m unittest tests.test_entigram_self_improvement_model
+}
+
+EXPECTATION: Tamper-Evident Audit Bundles {
+  developer_expectation: Operators should be able to export local ledger evidence and delivery state into a portable tamper-evident bundle.
+  implementation_rule: The broker must expose `export-audit` and compute a SHA-256 digest over canonical JSON for the exported audit payload.
+  validation_check: python -m unittest tests.test_delivery_ledger
+  proof: python -m unittest tests.test_delivery_ledger
+}
+
+EXPECTATION: Immutable Gate Smoke Demo {
+  developer_expectation: A new evaluator should be able to prove Entigram's model, gate, and audit loop with one local command.
+  implementation_rule: `scripts/demo_immutable_gate.py` must demonstrate schema discovery, hallucinated entity rejection, valid alignment proposal, conflict logging, delivery anchoring, and audit bundle hashing.
+  validation_check: python -m unittest tests.test_entigram_self_improvement_model
+  proof: python -m unittest tests.test_entigram_self_improvement_model
+}
+
+EXPECTATION: Headless CLI UI Boundary {
+  developer_expectation: Entigram's CLI/MCP install should remain headless by default while giving clear installation guidance for the optional dashboard.
+  implementation_rule: Streamlit must be declared as a UI extra and `etg ui` must explain pipx installation/injection when Streamlit is missing.
+  validation_check: python -m unittest tests.test_cli_integration
+  proof: python -m unittest tests.test_cli_integration
+}
+
 /* Updated: 2026-05-20 Headless Antigravity engine execution via stdin piping support added */
 /* Updated: 2026-06-04 Entigram self-improvement loop modeled with expectations, evidence, evaluations, proposals, and lessons */
 /* Updated: 2026-06-04 Commissioner companion features: Entigram_Delivery_Snapshot, Blocked lifecycle, proof_capabilities, improvement proposals */
@@ -483,3 +511,4 @@ EXPECTATION: Machine-Readable MCP Gate Responses {
 /* Updated: 2026-06-18 Release PR governance rules modeled for conventional commits, release-please eligibility, manual dispatch discipline, and immutable published versions */
 /* Updated: 2026-06-20 Canonical cross-agent governance policy modeled for discoverability and deterministic handoff */
 /* Updated: 2026-06-20 MCP schema scope and machine-readable gate responses modeled */
+/* Updated: 2026-06-20 MCP docs, audit bundle export, smoke demo, and UI extra boundary modeled */

@@ -87,6 +87,8 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
                 "python -m unittest tests.test_entigram_release_model passed",
                 "python -m unittest tests.test_agent_policy passed",
                 "python -m unittest tests.test_mcp_service passed",
+                "python -m unittest tests.test_delivery_ledger passed",
+                "python -m unittest tests.test_cli_integration passed",
             ]
         )
 
@@ -99,7 +101,27 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
         self.assertIn("Deterministic Pre-Handoff Gate", names)
         self.assertIn("MCP Closed-World Schema Scope", names)
         self.assertIn("Machine-Readable MCP Gate Responses", names)
+        self.assertIn("MCP Tool Contract Documentation", names)
+        self.assertIn("Tamper-Evident Audit Bundles", names)
+        self.assertIn("Immutable Gate Smoke Demo", names)
+        self.assertIn("Headless CLI UI Boundary", names)
         self.assertTrue(checklist["valid"])
+
+    def test_product_surface_artifacts_exist(self):
+        mcp_docs = Path("docs/mcp-tools.md").read_text()
+        demo = Path("scripts/demo_immutable_gate.py").read_text()
+        pyproject = Path("pyproject.toml").read_text()
+
+        self.assertIn("etg_get_schemas", mcp_docs)
+        self.assertIn("etg_propose_alignment", mcp_docs)
+        self.assertIn("etg_log_conflict", mcp_docs)
+        self.assertIn("UNKNOWN_CONCEPT", mcp_docs)
+        self.assertIn("export-audit", Path("README.md").read_text())
+        self.assertIn("EntigramMCPService", demo)
+        self.assertIn("export_audit_bundle", demo)
+        self.assertIn("[project.optional-dependencies]", pyproject)
+        self.assertIn("ui = [", pyproject)
+        self.assertIn('"streamlit>=1.35.0"', pyproject)
 
 
 if __name__ == "__main__":
