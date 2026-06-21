@@ -128,7 +128,7 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
         self.assertIn("[project.optional-dependencies]", pyproject)
         self.assertIn("ui = [", pyproject)
         self.assertIn('"streamlit>=1.35.0"', pyproject)
-        self.assertIn('version = "1.6.0"', pyproject)
+        self.assertIn('version = "1.7.0"', pyproject)
         self.assertIn('"cryptography>=42.0.0"', pyproject)
 
 

@@ -50,7 +50,7 @@ class TestCLIIntegration(unittest.TestCase):
     def test_version_flag(self):
         success, output = self.run_cli(['--version'])
         self.assertTrue(success)
-        self.assertIn("etg 1.6.0", output)
+        self.assertIn("etg 1.7.0", output)
 
     def test_config_command(self):
         # First initialize
