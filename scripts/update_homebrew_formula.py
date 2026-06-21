@@ -17,6 +17,7 @@ from typing import Any
 FORMULA_SOURCE_RE = re.compile(
     r'(?m)^(  url ")[^"]+\.tar\.gz("\n  sha256 ")[0-9a-f]{64}(")$'
 )
+HOMEBREW_PYTHON_VERSION = "3.14"
 RESOURCE_RE = re.compile(r'^\s*resource "([^"]+)" do')
 NATIVE_DEPENDENCY_BY_RESOURCE = {
     "cryptography": "cryptography",
@@ -141,6 +142,25 @@ def update_formula_source(formula_path: Path, source_url: str, sha256: str) -> N
     formula_path.write_text(updated)
 
 
+def update_formula_python_runtime(formula_path: Path) -> None:
+    text = formula_path.read_text()
+    updated, dep_count = re.subn(
+        r'depends_on "python@\d+\.\d+"',
+        f'depends_on "python@{HOMEBREW_PYTHON_VERSION}"',
+        text,
+        count=1,
+    )
+    updated, venv_count = re.subn(
+        r'virtualenv_create\(libexec, "python\d+\.\d+"\)',
+        f'virtualenv_create(libexec, "python{HOMEBREW_PYTHON_VERSION}")',
+        updated,
+        count=1,
+    )
+    if dep_count != 1 or venv_count != 1:
+        raise RuntimeError(f"Could not update Python runtime in {formula_path}")
+    formula_path.write_text(updated)
+
+
 def filter_native_resources(
     resources_text: str,
     excluded_resource_names: set[str] | None = None,
@@ -213,8 +233,8 @@ def update_resources(formula_path: Path, package_name: str, version: str) -> Non
 
     text = formula_path.read_text()
 
-    # We want to replace everything between 'depends_on "python@3.12"' and 'def install'
-    start_marker = 'depends_on "python@3.12"\n'
+    # We want to replace everything between the Python dependency and 'def install'
+    start_marker = f'depends_on "python@{HOMEBREW_PYTHON_VERSION}"\n'
     end_marker = '  def install\n'
     
     start_idx = text.find(start_marker)
@@ -253,6 +273,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     update_formula_source(args.formula, source_url, sha256)
+    update_formula_python_runtime(args.formula)
     update_resources(args.formula, args.package_name, args.version)
     print(f"Updated {args.formula} to {source_url}")
     print(f"SHA256: {sha256}")

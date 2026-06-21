@@ -68,6 +68,31 @@ end
             ("https://example.test/sdist", "sdist"),
         )
 
+    def test_updates_homebrew_python_runtime(self):
+        formula = '''class Etg < Formula
+  include Language::Python::Virtualenv
+
+  depends_on "python@3.12"
+
+  def install
+    venv = virtualenv_create(libexec, "python3.12")
+  end
+end
+'''
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            formula_path = Path(tmpdir) / "etg.rb"
+            formula_path.write_text(formula)
+
+            update_homebrew_formula.update_formula_python_runtime(formula_path)
+
+            updated = formula_path.read_text()
+
+        self.assertIn('depends_on "python@3.14"', updated)
+        self.assertIn('virtualenv_create(libexec, "python3.14")', updated)
+        self.assertNotIn("python@3.12", updated)
+        self.assertNotIn("python3.12", updated)
+
     def test_select_sdist_reports_files_seen_when_missing(self):
         release = {
             "urls": [
@@ -211,7 +236,7 @@ end
   sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   license "Apache-2.0"
 
-  depends_on "python@3.12"
+  depends_on "python@3.14"
 
   def install
   end
@@ -240,7 +265,7 @@ end
                 poet_output,
                 excluded_resource_names=update_homebrew_formula.package_resource_names("entigram-ai"),
             )
-            start_marker = 'depends_on "python@3.12"\n'
+            start_marker = f'depends_on "python@{update_homebrew_formula.HOMEBREW_PYTHON_VERSION}"\n'
             end_marker = '  def install\n'
             text = formula_path.read_text()
             start_idx = text.find(start_marker) + len(start_marker)
