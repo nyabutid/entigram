@@ -3,6 +3,7 @@ import argparse
 import os
 import json
 import importlib.util
+import re
 import shutil
 import yaml
 from pathlib import Path
@@ -12,6 +13,21 @@ from entigram.schema_compiler import compile_schema_file
 from entigram.package_builder import PackageBuilder
 from entigram.cli_runner.runner import launch_agent
 from entigram.utils import find_project_root
+
+
+def get_package_version() -> str:
+    """Return the Entigram package version for CLI display and hydration."""
+    project_file = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    if project_file.exists():
+        match = re.search(r'(?m)^version = "([^"]+)"$', project_file.read_text())
+        if match:
+            return match.group(1)
+
+    try:
+        from importlib.metadata import version
+        return version("entigram-ai")
+    except Exception:
+        return "unknown"
 
 def get_default_engine():
     """Probes the system for available AI agents (Antigravity, Claude, or Codex)."""
@@ -111,9 +127,17 @@ def get_hydration_vector(target_path: Path, compact: bool = False) -> str:
         commissioner_checklist = Commissioner(schema_content).build_checklist()
 
     # 4. Flatten to High-Density String
+    workspace_schema_version = manifest.get(
+        "workspace_schema_version",
+        manifest.get("entigram_version", "1"),
+    )
+    package_version = get_package_version()
+
     boot_payload = {
         "ENTIGRAM_BOOT_VECTOR": {
-            "version": manifest.get("entigram_version"),
+            "version": package_version,
+            "package_version": package_version,
+            "workspace_schema_version": workspace_schema_version,
             "packages": list(manifest.get("packages", {}).keys()),
             "physical_laws": schema_content,
             "commissioner": commissioner_checklist,
@@ -172,6 +196,7 @@ def launch_ui(target_dir=None):
 
 def main():
     parser = argparse.ArgumentParser(description="Entigram Headless Compiler CLI")
+    parser.add_argument("--version", action="version", version=f"etg {get_package_version()}")
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
     # Load user plugins
@@ -444,6 +469,10 @@ def main():
         help="Export a tamper-evident JSON audit bundle for the current workspace",
     )
     audit_parser.add_argument("--out", help="Output path for the audit bundle JSON")
+    audit_parser.add_argument(
+        "--signing-key",
+        help="Path to an Ed25519 private key. Defaults to .etg/audit_ed25519_private.pem",
+    )
     audit_parser.add_argument("--json", action="store_true", dest="json_output", help="Print full bundle as JSON")
 
     resolve_parser = broker_subparsers.add_parser(
@@ -1122,14 +1151,19 @@ RELATIONSHIPS:
             if result.get("needs_recommission"):
                 sys.exit(1)
         elif args.broker_command == "export-audit":
-            bundle = broker.export_audit_bundle(out_path=getattr(args, "out", None))
+            bundle = broker.export_audit_bundle(
+                out_path=getattr(args, "out", None),
+                signing_key_path=getattr(args, "signing_key", None),
+            )
             if args.json_output:
                 print(json.dumps(bundle, indent=2, sort_keys=True))
             else:
                 if bundle.get("path"):
                     print(f"📦 Audit bundle: {bundle['path']}")
                 print(f"🔏 SHA-256: {bundle['sha256']}")
-                print("Signature: sha256-canonical-json (tamper-evident digest)")
+                sig = bundle.get("signature", {})
+                print(f"Signature: {sig.get('type', 'unknown')} ({sig.get('key_id', 'unknown')})")
+                print(f"Signing key: {bundle.get('signing_key_path', 'unknown')}")
         elif args.broker_command == "resolve":
             # Run missing proof commands and record outcomes
             checklist = broker.commission()

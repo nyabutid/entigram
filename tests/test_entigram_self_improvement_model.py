@@ -89,6 +89,7 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
                 "python -m unittest tests.test_mcp_service passed",
                 "python -m unittest tests.test_delivery_ledger passed",
                 "python -m unittest tests.test_cli_integration passed",
+                "python -m unittest tests.test_hydration passed",
             ]
         )
 
@@ -105,6 +106,10 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
         self.assertIn("Tamper-Evident Audit Bundles", names)
         self.assertIn("Immutable Gate Smoke Demo", names)
         self.assertIn("Headless CLI UI Boundary", names)
+        self.assertIn("CLI Version Introspection", names)
+        self.assertIn("Workspace Manifest Version Clarity", names)
+        self.assertIn("Signed Audit Bundles", names)
+        self.assertIn("Entigram 1.6 Release Note", names)
         self.assertTrue(checklist["valid"])
 
     def test_product_surface_artifacts_exist(self):
@@ -117,11 +122,14 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
         self.assertIn("etg_log_conflict", mcp_docs)
         self.assertIn("UNKNOWN_CONCEPT", mcp_docs)
         self.assertIn("export-audit", Path("README.md").read_text())
+        self.assertIn("Entigram 1.6 introduces", Path("CHANGELOG.md").read_text())
         self.assertIn("EntigramMCPService", demo)
         self.assertIn("export_audit_bundle", demo)
         self.assertIn("[project.optional-dependencies]", pyproject)
         self.assertIn("ui = [", pyproject)
         self.assertIn('"streamlit>=1.35.0"', pyproject)
+        self.assertIn('version = "1.6.0"', pyproject)
+        self.assertIn('"cryptography>=42.0.0"', pyproject)
 
 
 if __name__ == "__main__":

@@ -42,8 +42,15 @@ class TestCLIIntegration(unittest.TestCase):
             self.assertTrue(os.path.exists(".etg/entigram.yaml"))
             with open(".etg/entigram.yaml", "r") as f:
                 manifest = yaml.safe_load(f)
+            self.assertEqual(manifest["workspace_schema_version"], 1)
+            self.assertNotIn("entigram_version", manifest)
             self.assertEqual(manifest["schema_paths"], ["schema.lds"])
             self.assertTrue(manifest["state_ledger"].endswith(".etg/state.db"))
+
+    def test_version_flag(self):
+        success, output = self.run_cli(['--version'])
+        self.assertTrue(success)
+        self.assertIn("etg 1.6.0", output)
 
     def test_config_command(self):
         # First initialize
@@ -91,6 +98,8 @@ ATTRIBUTES:
         self.assertTrue(success)
         self.assertIn("Audit bundle", output)
         self.assertIn("SHA-256", output)
+        self.assertIn("Signature: ed25519", output)
+        self.assertIn("Signing key:", output)
         self.assertTrue(Path("audit.json").exists())
 
     def test_interview_command_init_check(self):

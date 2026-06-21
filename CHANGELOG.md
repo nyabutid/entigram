@@ -13,6 +13,15 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.6.0](https://github.com/nyabutid/entigram/compare/v1.5.0...v1.6.0) (2026-06-20)
+
+### Features
+
+* Entigram 1.6 introduces signed audit bundles for portable governance evidence.
+* Document the MCP gate contract for `etg_get_schemas`, `etg_propose_alignment`, and `etg_log_conflict`.
+* Add a deterministic Immutable Gate smoke test for schema discovery, hallucination rejection, ledger writes, delivery anchoring, and audit export.
+* Keep the CLI/MCP runtime headless by default while publishing an optional Streamlit UI extra.
+
 ## [1.5.0](https://github.com/nyabutid/entigram/compare/v1.4.1...v1.5.0) (2026-06-20)
 
 

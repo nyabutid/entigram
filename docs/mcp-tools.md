@@ -123,3 +123,17 @@ Expected behavior:
 - a valid alignment is written as a proposal
 - a conflict is written to the ledger
 - `broker deliver` anchors the workspace snapshot
+
+## Signed Audit Export
+
+After a delivery is anchored, export a portable audit bundle:
+
+```bash
+etg broker export-audit --out entigram-audit.json
+```
+
+The bundle contains the latest delivery status, delivery evidence, anchored
+artifacts, alignments, conflicts, and resolutions. Entigram signs the canonical
+JSON payload with Ed25519 and includes the public key, key id, and signature in
+the bundle. By default, the local private key is stored at
+`.etg/audit_ed25519_private.pem`; keep it private and out of source control.

@@ -321,10 +321,14 @@ class TestBrokerDeliverySnapshots(unittest.TestCase):
                 ledger.close()
             shutil.rmtree(test_dir)
 
-    def test_export_audit_bundle_has_tamper_evident_digest(self):
+    def test_export_audit_bundle_has_ed25519_signature(self):
+        import base64
+        import json
         import tempfile
         import shutil
         from pathlib import Path
+
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
         from entigram.broker import EntigramBroker
         from entigram.injector import inject_entigram_manifest
@@ -344,11 +348,24 @@ class TestBrokerDeliverySnapshots(unittest.TestCase):
             bundle = broker.export_audit_bundle("audit.json")
 
             self.assertTrue(bundle["ok"])
-            self.assertEqual(bundle["sha256"], bundle["signature"]["value"])
-            self.assertEqual(bundle["signature"]["type"], "sha256-canonical-json")
+            self.assertEqual(bundle["signature"]["type"], "ed25519")
             self.assertEqual(bundle["payload"]["bundle_type"], "entigram.audit_bundle.v1")
             self.assertEqual(bundle["payload"]["delivery_status"]["status"], "current")
+            self.assertTrue(Path(bundle["signing_key_path"]).exists())
             self.assertTrue(Path(test_dir, "audit.json").exists())
+
+            canonical_payload = json.dumps(
+                bundle["payload"],
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            public_key = Ed25519PublicKey.from_public_bytes(
+                base64.b64decode(bundle["signature"]["public_key"])
+            )
+            public_key.verify(
+                base64.b64decode(bundle["signature"]["value"]),
+                canonical_payload,
+            )
         finally:
             if ledger is not None:
                 ledger.close()

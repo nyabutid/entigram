@@ -26,7 +26,7 @@ def inject_entigram_manifest(target_dir: str, selected_packages: list, cli_engin
     locked_packages = {pkg: "0.0.1" for pkg in selected_packages}
     
     manifest = {
-        "entigram_version": "0.0.1",
+        "workspace_schema_version": 1,
         "packages": locked_packages,
         "cli_engine": cli_engine,
         "schema_paths": ["schema.lds"],

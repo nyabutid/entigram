@@ -501,6 +501,34 @@ EXPECTATION: Headless CLI UI Boundary {
   proof: python -m unittest tests.test_cli_integration
 }
 
+EXPECTATION: CLI Version Introspection {
+  developer_expectation: Operators should be able to verify the installed Entigram CLI version without inspecting package metadata or Homebrew internals.
+  implementation_rule: `etg --version` must print the Entigram package version and exit successfully.
+  validation_check: python -m unittest tests.test_cli_integration
+  proof: python -m unittest tests.test_cli_integration
+}
+
+EXPECTATION: Workspace Manifest Version Clarity {
+  developer_expectation: Workspace manifests should not imply that the installed Entigram package is stale when they are only describing workspace metadata.
+  implementation_rule: New manifests must use `workspace_schema_version` for manifest schema compatibility, and hydration must report package version separately.
+  validation_check: python -m unittest tests.test_hydration
+  proof: python -m unittest tests.test_hydration
+}
+
+EXPECTATION: Signed Audit Bundles {
+  developer_expectation: Exported audit bundles should be identity-authenticated with a local signing key, not only content-addressed.
+  implementation_rule: `etg broker export-audit` must sign canonical audit payload JSON with Ed25519 and include the public key, key id, and signature in the bundle.
+  validation_check: python -m unittest tests.test_delivery_ledger
+  proof: python -m unittest tests.test_delivery_ledger
+}
+
+EXPECTATION: Entigram 1.6 Release Note {
+  developer_expectation: The 1.6 release should clearly explain the enterprise-facing value of audit bundles, the MCP contract, and the Immutable Gate smoke test.
+  implementation_rule: `CHANGELOG.md` must include a concise 1.6.0 release note centered on signed audit bundles, documented MCP tools, and the deterministic smoke demo.
+  validation_check: python -m unittest tests.test_entigram_self_improvement_model
+  proof: python -m unittest tests.test_entigram_self_improvement_model
+}
+
 /* Updated: 2026-05-20 Headless Antigravity engine execution via stdin piping support added */
 /* Updated: 2026-06-04 Entigram self-improvement loop modeled with expectations, evidence, evaluations, proposals, and lessons */
 /* Updated: 2026-06-04 Commissioner companion features: Entigram_Delivery_Snapshot, Blocked lifecycle, proof_capabilities, improvement proposals */
@@ -512,3 +540,4 @@ EXPECTATION: Headless CLI UI Boundary {
 /* Updated: 2026-06-20 Canonical cross-agent governance policy modeled for discoverability and deterministic handoff */
 /* Updated: 2026-06-20 MCP schema scope and machine-readable gate responses modeled */
 /* Updated: 2026-06-20 MCP docs, audit bundle export, smoke demo, and UI extra boundary modeled */
+/* Updated: 2026-06-20 CLI versioning, workspace manifest clarity, signed audit bundles, and 1.6 release note modeled */

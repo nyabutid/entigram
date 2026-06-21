@@ -91,10 +91,13 @@ etg broker deliver
 etg broker status
 ```
 
-Export a tamper-evident audit bundle:
+Export an Ed25519-signed audit bundle:
 ```bash
 etg broker export-audit --out entigram-audit.json
 ```
+
+The first export creates a local signing key at
+`.etg/audit_ed25519_private.pem`. Keep that private key out of source control.
 
 For the complete MCP tool contract, see [`docs/mcp-tools.md`](docs/mcp-tools.md).
 

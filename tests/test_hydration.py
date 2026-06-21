@@ -56,6 +56,8 @@ class TestHydration(unittest.TestCase):
             self.assertIn("--- ENTIGRAM HYDRATION SEQUENCE ---", output)
             self.assertIn("--- SEQUENCE COMPLETE ---", output)
             self.assertIn("ENTIGRAM_BOOT_VECTOR", output)
+            self.assertIn('"package_version": "1.6.0"', output)
+            self.assertIn('"workspace_schema_version": 1', output)
             self.assertIn("DomainA", output)
             self.assertIn("DomainB", output)
             self.assertIn("User", output)

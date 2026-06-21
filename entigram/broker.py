@@ -4,6 +4,7 @@ import sqlite3
 import hashlib
 import mimetypes
 import platform
+import base64
 from itertools import combinations
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
@@ -11,6 +12,9 @@ from .sqlite_ledger.manager import LedgerManager
 from .sqlite_ledger.paths import resolve_ledger_path
 from datetime import datetime, timezone
 from .governance.warden import Warden
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 class EntigramBroker:
     """
@@ -463,7 +467,40 @@ class EntigramBroker:
             "breakdown": breakdown,
         }
 
-    def export_audit_bundle(self, out_path: Optional[str] = None) -> Dict[str, Any]:
+    def _load_or_create_audit_signing_key(self, signing_key_path: Optional[str] = None) -> Tuple[Ed25519PrivateKey, Path]:
+        key_path = Path(signing_key_path).expanduser() if signing_key_path else self.etg_dir / "audit_ed25519_private.pem"
+        if not key_path.is_absolute():
+            key_path = self.target_dir / key_path
+
+        if key_path.exists():
+            private_key = serialization.load_pem_private_key(
+                key_path.read_bytes(),
+                password=None,
+            )
+            if not isinstance(private_key, Ed25519PrivateKey):
+                raise ValueError(f"Audit signing key is not an Ed25519 private key: {key_path}")
+            return private_key, key_path
+
+        key_path.parent.mkdir(parents=True, exist_ok=True)
+        private_key = Ed25519PrivateKey.generate()
+        key_path.write_bytes(
+            private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
+        )
+        try:
+            key_path.chmod(0o600)
+        except OSError:
+            pass
+        return private_key, key_path
+
+    def export_audit_bundle(
+        self,
+        out_path: Optional[str] = None,
+        signing_key_path: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Exports a deterministic, content-addressed audit bundle for the current
         workspace. The SHA-256 digest is computed over canonical JSON and can
@@ -497,16 +534,27 @@ class EntigramBroker:
             "pending_conflicts": self.ledger.get_pending_conflicts(),
             "resolutions": self.ledger.get_all_resolutions(),
         }
-        canonical_payload = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        digest = hashlib.sha256(canonical_payload.encode("utf-8")).hexdigest()
+        canonical_payload = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        digest = hashlib.sha256(canonical_payload).hexdigest()
+        private_key, key_path = self._load_or_create_audit_signing_key(signing_key_path)
+        signature = private_key.sign(canonical_payload)
+        public_key_bytes = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        key_id = hashlib.sha256(public_key_bytes).hexdigest()
         bundle = {
             "ok": True,
             "sha256": digest,
             "signature": {
-                "type": "sha256-canonical-json",
-                "value": digest,
-                "note": "Tamper-evident content digest; not a public-key signature.",
+                "type": "ed25519",
+                "key_id": key_id,
+                "public_key": base64.b64encode(public_key_bytes).decode("ascii"),
+                "public_key_encoding": "base64-raw-ed25519",
+                "value": base64.b64encode(signature).decode("ascii"),
+                "signed_payload": "payload canonical JSON",
             },
+            "signing_key_path": str(key_path),
             "payload": payload,
         }
 
