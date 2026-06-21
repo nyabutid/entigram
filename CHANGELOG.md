@@ -13,6 +13,15 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.7.5](https://github.com/nyabutid/entigram/compare/v1.7.4...v1.7.5) (2026-06-21)
+
+
+### Bug Fixes
+
+* filter pydantic and rpds-py rust dependencies ([a608216](https://github.com/nyabutid/entigram/commit/a6082166576994fa1efbe80750c9cc4a7d429678))
+* filter pydantic and rpds-py rust dependencies ([68478a7](https://github.com/nyabutid/entigram/commit/68478a7c3d79f9c8c118e97222613d6e96e76238))
+* harden Homebrew resource filtering ([4c20ebd](https://github.com/nyabutid/entigram/commit/4c20ebdefd496ca8849930a4c9896296ba5759d0))
+
 ## [1.7.4](https://github.com/nyabutid/entigram/compare/v1.7.3...v1.7.4) (2026-06-21)
 
 
