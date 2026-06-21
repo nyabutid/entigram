@@ -13,6 +13,14 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.7.2](https://github.com/nyabutid/entigram/compare/v1.7.1...v1.7.2) (2026-06-21)
+
+
+### Bug Fixes
+
+* eliminate PyPI index race condition in homebrew release script ([a211b37](https://github.com/nyabutid/entigram/commit/a211b379683b6adf852100d1d4435a5f80394ca3))
+* use local repo root to avoid PyPI index race condition ([0e95d74](https://github.com/nyabutid/entigram/commit/0e95d7420f6684b5afc4ed5c3ceb02d4cdbf44b4))
+
 ## [1.7.1](https://github.com/nyabutid/entigram/compare/v1.7.0...v1.7.1) (2026-06-21)
 
 
