@@ -13,6 +13,14 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.7.3](https://github.com/nyabutid/entigram/compare/v1.7.2...v1.7.3) (2026-06-21)
+
+
+### Bug Fixes
+
+* eliminate cryptography dependency for Homebrew builds ([572e8ad](https://github.com/nyabutid/entigram/commit/572e8ad3571384b4ae8723e5a16ac42df9a5b693))
+* replace cryptography with pure python ecdsa to resolve Homebrew sandbox build failures ([2dee694](https://github.com/nyabutid/entigram/commit/2dee69408d490f9050ea1a359287048c5ca26ad5))
+
 ## [1.7.2](https://github.com/nyabutid/entigram/compare/v1.7.1...v1.7.2) (2026-06-21)
 
 
