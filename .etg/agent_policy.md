@@ -25,11 +25,8 @@ duplicating handoff rules.
 Before handing work back after source, schema, ontology, package, or release
 changes:
 
-1. Run `python3 -m entigram.cli_runner.etg_cli broker guard`.
-2. If governed schema or ontology artifacts changed, run
-   `python3 -m entigram.cli_runner.etg_cli warden lock`.
-3. Run `python3 -m entigram.cli_runner.etg_cli broker deliver`.
-4. Run `python3 -m entigram.cli_runner.etg_cli broker status`.
+1. Run `make handoff` (this automatically runs `broker guard`, `warden lock`, and `broker deliver`).
+2. Run `python3 -m entigram.cli_runner.etg_cli broker status`.
 
 `broker status` must report `Delivery status: current` before handoff.
 Do not run `warden lock` after `broker deliver`; `warden lock` mutates

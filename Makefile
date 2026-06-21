@@ -31,7 +31,7 @@ bootstrap: ## Bootstraps the Entigram Compiler dependencies and internal SQLite 
 	@echo "Bootstrapping Entigram Compiler..."
 	@if [ ! -d "$(VENV_DIR)" ]; then python3 -m venv $(VENV_DIR); fi
 	@$(PIP) install --upgrade pip
-	@$(PIP) install -r requirements.txt
+	@$(PIP) install -e .[ui]
 	@echo "Initializing internal SQLite state ledger..."
 	@mkdir -p .etg
 	@$(PYTHON) -c "import sys; from pathlib import Path; sys.path.append(str(Path.cwd())); from entigram.sqlite_ledger.manager import LedgerManager; LedgerManager('.etg/entigram_state.db')"
@@ -56,6 +56,13 @@ reset: clean
 	@echo "Resetting Entigram engine..."
 	@rm -rf $(VENV_DIR)
 	@rm -f .etg/entigram_state.db
+
+handoff: ## Runs the immutable governance pre-handoff gate sequence
+	@echo "Anchoring delivery state..."
+	@$(PYTHON) -m entigram.cli_runner.etg_cli broker guard
+	@$(PYTHON) -m entigram.cli_runner.etg_cli warden lock
+	@$(PYTHON) -m entigram.cli_runner.etg_cli broker deliver
+	@echo "Governance sequence complete. Ready to commit."
 
 generate-agent: ## Scaffolds a new custom edge-agent pre-wired to the state ledger (Usage: make generate-agent name=my_custom_api)
 	@if [ -z "$(name)" ]; then echo "Error: Must provide an agent name (e.g., make generate-agent name=stripe)"; exit 1; fi
