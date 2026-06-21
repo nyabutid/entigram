@@ -129,7 +129,7 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
         self.assertIn("ui = [", pyproject)
         self.assertIn('"streamlit>=1.35.0"', pyproject)
         self.assertRegex(pyproject, r'version = "\d+\.\d+\.\d+"')
-        self.assertIn('"ecdsa"', pyproject)
+        self.assertIn('"cryptography>=42.0.0"', pyproject)
 
 
 if __name__ == "__main__":

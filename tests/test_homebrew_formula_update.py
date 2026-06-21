@@ -132,6 +132,12 @@ end
         self.assertEqual(result, ("https://example.test/sdist", "sdist"))
         self.assertEqual(sleeps, [0])
 
+    def test_package_resource_names_include_dash_and_underscore_forms(self):
+        self.assertEqual(
+            update_homebrew_formula.package_resource_names("entigram-ai"),
+            {"entigram-ai", "entigram_ai"},
+        )
+
     def test_filters_rust_backed_resources_to_native_dependencies(self):
         resources = '''resource "pydantic" do
   url "https://files.pythonhosted.org/packages/pydantic.tar.gz"
@@ -162,6 +168,27 @@ end
         self.assertNotIn('resource "rpds-py"', filtered)
         self.assertIn('resource "httpx"', filtered)
 
+    def test_filters_current_package_resource_without_native_dependency(self):
+        resources = '''resource "entigram-ai" do
+  url "https://files.pythonhosted.org/packages/entigram_ai-1.7.5.tar.gz"
+  sha256 "self"
+end
+
+resource "httpx" do
+  url "https://files.pythonhosted.org/packages/httpx.tar.gz"
+  sha256 "httpx"
+end
+'''
+
+        filtered, deps = update_homebrew_formula.filter_native_resources(
+            resources,
+            excluded_resource_names=update_homebrew_formula.package_resource_names("entigram-ai"),
+        )
+
+        self.assertEqual(deps, [])
+        self.assertNotIn('resource "entigram-ai"', filtered)
+        self.assertIn('resource "httpx"', filtered)
+
     def test_render_dependency_block_does_not_inject_unneeded_cryptography(self):
         block = update_homebrew_formula.render_dependency_block(
             ["pydantic", "rpds-py"],
@@ -189,7 +216,12 @@ end
   end
 end
 '''
-        poet_output = '''resource "pydantic_core" do
+        poet_output = '''resource "entigram-ai" do
+  url "https://files.pythonhosted.org/packages/entigram_ai-1.7.3.tar.gz"
+  sha256 "self"
+end
+
+resource "pydantic_core" do
   url "https://files.pythonhosted.org/packages/pydantic_core.tar.gz"
   sha256 "core"
 end
@@ -203,7 +235,10 @@ end
         with tempfile.TemporaryDirectory() as tmpdir:
             formula_path = Path(tmpdir) / "etg.rb"
             formula_path.write_text(formula)
-            filtered, deps = update_homebrew_formula.filter_native_resources(poet_output)
+            filtered, deps = update_homebrew_formula.filter_native_resources(
+                poet_output,
+                excluded_resource_names=update_homebrew_formula.package_resource_names("entigram-ai"),
+            )
             start_marker = 'depends_on "python@3.12"\n'
             end_marker = '  def install\n'
             text = formula_path.read_text()
@@ -218,6 +253,7 @@ end
             updated = formula_path.read_text()
 
         self.assertIn('depends_on "pydantic"', updated)
+        self.assertNotIn('resource "entigram-ai"', updated)
         self.assertNotIn('resource "pydantic_core"', updated)
         self.assertIn('resource "httpx"', updated)
 

@@ -33,6 +33,15 @@ NATIVE_DEPENDENCY_BY_RESOURCE = {
 DEPENDENCY_ORDER = ["cryptography", "cffi", "pycparser", "pydantic", "rpds-py"]
 
 
+def package_resource_names(package_name: str) -> set[str]:
+    """Return likely poet resource names for the package being installed from buildpath."""
+    return {
+        package_name,
+        package_name.replace("-", "_"),
+        package_name.replace("_", "-"),
+    }
+
+
 def load_pypi_release(
     package_name: str,
     version: str,
@@ -128,7 +137,10 @@ def update_formula_source(formula_path: Path, source_url: str, sha256: str) -> N
     formula_path.write_text(updated)
 
 
-def filter_native_resources(resources_text: str) -> tuple[str, list[str]]:
+def filter_native_resources(
+    resources_text: str,
+    excluded_resource_names: set[str] | None = None,
+) -> tuple[str, list[str]]:
     """
     Removes poet resource blocks that Homebrew should satisfy with bottled
     native formulas instead of source-building Rust/C extensions in the etg
@@ -136,6 +148,7 @@ def filter_native_resources(resources_text: str) -> tuple[str, list[str]]:
     """
     filtered_lines = []
     native_deps = set()
+    excluded_resource_names = excluded_resource_names or set()
     skip_mode = False
 
     for line in resources_text.splitlines():
@@ -143,7 +156,9 @@ def filter_native_resources(resources_text: str) -> tuple[str, list[str]]:
         if match:
             resource_name = match.group(1)
             native_dep = NATIVE_DEPENDENCY_BY_RESOURCE.get(resource_name)
-            if native_dep:
+            if resource_name in excluded_resource_names:
+                skip_mode = True
+            elif native_dep:
                 native_deps.add(native_dep)
                 skip_mode = True
 
@@ -185,7 +200,10 @@ def update_resources(formula_path: Path, package_name: str, version: str) -> Non
     print("Generating resources with poet...")
     result = subprocess.run([".poet-venv/bin/poet", package_name], capture_output=True, text=True, check=True)
     resources_text = result.stdout.strip()
-    cleaned_resources_text, native_deps = filter_native_resources(resources_text)
+    cleaned_resources_text, native_deps = filter_native_resources(
+        resources_text,
+        excluded_resource_names=package_resource_names(package_name),
+    )
 
     text = formula_path.read_text()
 
