@@ -13,6 +13,14 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.7.1](https://github.com/nyabutid/entigram/compare/v1.7.0...v1.7.1) (2026-06-21)
+
+
+### Bug Fixes
+
+* generate homebrew formula resources using poet ([01ecd5e](https://github.com/nyabutid/entigram/commit/01ecd5e1cb54547fc8ea75643c20595f0cf99819))
+* generate homebrew formula resources using poet ([1173fa7](https://github.com/nyabutid/entigram/commit/1173fa77e0e3b7fe926e4a1273aeebcb9981ebad))
+
 ## [1.7.0](https://github.com/nyabutid/entigram/compare/v1.6.0...v1.7.0) (2026-06-21)
 
 
