@@ -5,10 +5,11 @@ import hashlib
 import mimetypes
 import platform
 import base64
-import ecdsa
 from itertools import combinations
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from .sqlite_ledger.manager import LedgerManager
 from .sqlite_ledger.paths import resolve_ledger_path
 from datetime import datetime, timezone
@@ -466,21 +467,29 @@ class EntigramBroker:
             "breakdown": breakdown,
         }
 
-    def _load_or_create_audit_signing_key(self, signing_key_path: Optional[str] = None) -> Tuple[Any, Path]:
-        key_path = Path(signing_key_path).expanduser() if signing_key_path else self.etg_dir / "audit_ecdsa_private.pem"
+    def _load_or_create_audit_signing_key(self, signing_key_path: Optional[str] = None) -> Tuple[Ed25519PrivateKey, Path]:
+        key_path = Path(signing_key_path).expanduser() if signing_key_path else self.etg_dir / "audit_ed25519_private.pem"
         if not key_path.is_absolute():
             key_path = self.target_dir / key_path
 
         if key_path.exists():
-            private_key = ecdsa.SigningKey.from_pem(
+            loaded_key = serialization.load_pem_private_key(
                 key_path.read_bytes(),
-                hashfunc=hashlib.sha256,
+                password=None,
             )
-            return private_key, key_path
+            if not isinstance(loaded_key, Ed25519PrivateKey):
+                raise ValueError(f"Audit signing key is not an Ed25519 private key: {key_path}")
+            return loaded_key, key_path
 
         key_path.parent.mkdir(parents=True, exist_ok=True)
-        private_key = ecdsa.SigningKey.generate(curve=ecdsa.NIST256p, hashfunc=hashlib.sha256)
-        key_path.write_bytes(private_key.to_pem())
+        private_key = Ed25519PrivateKey.generate()
+        key_path.write_bytes(
+            private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
+        )
         try:
             key_path.chmod(0o600)
         except OSError:
@@ -529,13 +538,16 @@ class EntigramBroker:
         digest = hashlib.sha256(canonical_payload).hexdigest()
         private_key, key_path = self._load_or_create_audit_signing_key(signing_key_path)
         signature = private_key.sign(canonical_payload)
-        public_key_bytes = private_key.verifying_key.to_string()
+        public_key_bytes = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
         key_id = hashlib.sha256(public_key_bytes).hexdigest()
         bundle = {
             "ok": True,
             "sha256": digest,
             "signature": {
-                "type": "ecdsa",
+                "type": "ed25519",
                 "key_id": key_id,
                 "public_key": base64.b64encode(public_key_bytes).decode("utf-8"),
                 "value": base64.b64encode(signature).decode("utf-8"),

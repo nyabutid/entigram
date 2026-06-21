@@ -8,4 +8,4 @@ protobuf>=5.26.1      # Ensure modern protobuf for C-extension compatibility
 pycozo
 requests
 mcp>=1.0.0
-ecdsa
+cryptography>=42.0.0
