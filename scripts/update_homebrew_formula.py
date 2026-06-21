@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 import time
 import urllib.request
@@ -73,6 +74,36 @@ def update_formula_source(formula_path: Path, source_url: str, sha256: str) -> N
     formula_path.write_text(updated)
 
 
+def update_resources(formula_path: Path, package_name: str, version: str) -> None:
+    # Use poet to get the resources
+    print("Installing package and poet in a temporary virtualenv...")
+    subprocess.run([sys.executable, "-m", "venv", ".poet-venv"], check=True)
+    subprocess.run([".poet-venv/bin/pip", "install", f"{package_name}=={version}", "homebrew-pypi-poet", "setuptools<70"], check=True)
+    
+    print("Generating resources with poet...")
+    result = subprocess.run([".poet-venv/bin/poet", package_name], capture_output=True, text=True, check=True)
+    resources_text = result.stdout.strip()
+    
+    text = formula_path.read_text()
+    
+    # We want to replace everything between 'depends_on "python@3.12"' and 'def install'
+    start_marker = 'depends_on "python@3.12"\n'
+    end_marker = '  def install\n'
+    
+    start_idx = text.find(start_marker)
+    end_idx = text.find(end_marker)
+    
+    if start_idx == -1 or end_idx == -1:
+        raise RuntimeError("Could not find markers to inject resources into formula")
+        
+    start_idx += len(start_marker)
+    
+    # Indent the resources text properly
+    indented_resources = "\n" + "\n".join("  " + line if line else "" for line in resources_text.splitlines()) + "\n\n"
+    
+    updated_text = text[:start_idx] + indented_resources + text[end_idx:]
+    formula_path.write_text(updated_text)
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Update a Homebrew formula from PyPI metadata.")
     parser.add_argument("formula", type=Path)
@@ -95,6 +126,7 @@ def main(argv: list[str] | None = None) -> int:
 
     source_url, sha256 = select_sdist(release)
     update_formula_source(args.formula, source_url, sha256)
+    update_resources(args.formula, args.package_name, args.version)
     print(f"Updated {args.formula} to {source_url}")
     print(f"SHA256: {sha256}")
     return 0
