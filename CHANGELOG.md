@@ -13,6 +13,14 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.9.0](https://github.com/nyabutid/entigram/compare/v1.8.0...v1.9.0) (2026-06-30)
+
+
+### Features
+
+* add Cloudflare Claude proxy launcher ([8076678](https://github.com/nyabutid/entigram/commit/8076678dae3a1732584ae23b8e394733658562b8))
+* add Cloudflare Claude proxy launcher ([6d2aedb](https://github.com/nyabutid/entigram/commit/6d2aedb6e6e50a3d30e1596d943c7ae411fe9e4d))
+
 ## [1.8.0](https://github.com/nyabutid/entigram/compare/v1.7.8...v1.8.0) (2026-06-21)
 
 
