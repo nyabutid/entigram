@@ -49,6 +49,23 @@ class TestCodexRunner(unittest.TestCase):
         self.assertEqual(args[:2], ["osascript", "-e"])
         self.assertIn("ollama launch codex --model llama3.2:latest", args[2])
 
+    @patch.dict("os.environ", {"OLLAMA_HOST": "http://192.168.1.200:11434"})
+    def test_ollama_launch_preserves_remote_host(self):
+        with patch("platform.system", return_value="Darwin"):
+            with patch("subprocess.run") as run:
+                success, message = launch_agent(
+                    ".",
+                    "Ollama",
+                    model="frob/glm-5.2:latest",
+                    ollama_launch_option="Claude Code",
+                )
+
+        self.assertTrue(success)
+        self.assertEqual(message, "Launched and focused Terminal.")
+        args = run.call_args.args[0]
+        self.assertIn("env OLLAMA_HOST=http://192.168.1.200:11434 ollama launch claude", args[2])
+        self.assertIn("--model frob/glm-5.2:latest", args[2])
+
     def test_ollama_defaults_to_claude_and_qwen3(self):
         with patch("platform.system", return_value="Darwin"):
             with patch("subprocess.run") as run:

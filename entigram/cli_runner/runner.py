@@ -68,7 +68,9 @@ def _normalize_ollama_launch_option(option: str = None) -> str:
 def _build_ollama_command(launch_option: str = None, model: str = None) -> str:
     app = _normalize_ollama_launch_option(launch_option)
     selected_model = model or "qwen3"
-    return f"ollama launch {shlex.quote(app)} --model {shlex.quote(selected_model)}"
+    ollama_host = os.environ.get("OLLAMA_HOST")
+    env_prefix = f"env OLLAMA_HOST={shlex.quote(ollama_host)} " if ollama_host else ""
+    return f"{env_prefix}ollama launch {shlex.quote(app)} --model {shlex.quote(selected_model)}"
 
 
 def execute_headless_agy(prompt: str, target_dir: str = "."):

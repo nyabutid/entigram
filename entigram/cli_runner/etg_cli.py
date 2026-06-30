@@ -292,6 +292,74 @@ def main():
         help="Launch the previous Federated GraphQL Hub instead of MCP",
     )
 
+    # cloudflare-ollama-proxy command
+    cloudflare_proxy_parser = subparsers.add_parser(
+        "cloudflare-ollama-proxy",
+        help="Run an Ollama-compatible proxy backed by Cloudflare Workers AI",
+    )
+    cloudflare_proxy_parser.add_argument("--host", default="127.0.0.1", help="Bind host")
+    cloudflare_proxy_parser.add_argument("--port", type=int, default=11435, help="Bind port")
+    cloudflare_proxy_parser.add_argument(
+        "--model",
+        default=None,
+        help="Workers AI model (default: @cf/zai-org/glm-5.2)",
+    )
+    cloudflare_proxy_parser.add_argument(
+        "--env-file",
+        default=".env",
+        help="Environment file to load before startup",
+    )
+    cloudflare_proxy_parser.add_argument(
+        "--smoke-test",
+        action="store_true",
+        help="Call Cloudflare once and exit",
+    )
+    cloudflare_proxy_parser.add_argument("--timeout-seconds", type=int, default=None, help="Cloudflare request timeout")
+    cloudflare_proxy_parser.add_argument("--retry-attempts", type=int, default=None, help="Cloudflare transient retry attempts")
+    cloudflare_proxy_parser.add_argument("--retry-sleep-seconds", type=int, default=None, help="Default sleep between retries")
+    cloudflare_proxy_parser.add_argument(
+        "--no-compact-prompts",
+        action="store_true",
+        help="Disable oversized tool-result compaction before forwarding prompts",
+    )
+    cloudflare_proxy_parser.add_argument(
+        "--max-tool-result-chars",
+        type=int,
+        default=None,
+        help="Maximum characters to keep for each tool result when compaction is enabled",
+    )
+
+    cloudflare_claude_parser = subparsers.add_parser(
+        "cloudflare-claude",
+        help="Start a dynamic Cloudflare Ollama proxy and launch Claude Code through it",
+    )
+    cloudflare_claude_parser.add_argument("--host", default="127.0.0.1", help="Bind host")
+    cloudflare_claude_parser.add_argument("--port", type=int, default=0, help="Bind port; 0 selects a free port")
+    cloudflare_claude_parser.add_argument(
+        "--model",
+        default=None,
+        help="Workers AI model (default: @cf/zai-org/glm-5.2)",
+    )
+    cloudflare_claude_parser.add_argument(
+        "--env-file",
+        default=".env",
+        help="Environment file to load before startup",
+    )
+    cloudflare_claude_parser.add_argument("--timeout-seconds", type=int, default=None, help="Cloudflare request timeout")
+    cloudflare_claude_parser.add_argument("--retry-attempts", type=int, default=None, help="Cloudflare transient retry attempts")
+    cloudflare_claude_parser.add_argument("--retry-sleep-seconds", type=int, default=None, help="Default sleep between retries")
+    cloudflare_claude_parser.add_argument(
+        "--no-compact-prompts",
+        action="store_true",
+        help="Disable oversized tool-result compaction before forwarding prompts",
+    )
+    cloudflare_claude_parser.add_argument(
+        "--max-tool-result-chars",
+        type=int,
+        default=None,
+        help="Maximum characters to keep for each tool result when compaction is enabled",
+    )
+
     # ui command
     ui_parser = subparsers.add_parser("ui", help="Launch the Entigram Visual Dashboard")
     ui_parser.add_argument("--dir", default=".", help="Target directory")
@@ -797,6 +865,35 @@ def main():
                 host=args.host,
                 port=args.port,
             )
+
+    elif args.command in {"cloudflare-ollama-proxy", "cloudflare-claude"}:
+        from entigram.cli_runner.cloudflare_ollama_proxy import main as proxy_main
+
+        proxy_args = [
+            "--host",
+            args.host,
+            "--port",
+            str(args.port),
+            "--env-file",
+            args.env_file,
+        ]
+        if args.model:
+            proxy_args.extend(["--model", args.model])
+        if args.timeout_seconds is not None:
+            proxy_args.extend(["--timeout-seconds", str(args.timeout_seconds)])
+        if args.retry_attempts is not None:
+            proxy_args.extend(["--retry-attempts", str(args.retry_attempts)])
+        if args.retry_sleep_seconds is not None:
+            proxy_args.extend(["--retry-sleep-seconds", str(args.retry_sleep_seconds)])
+        if args.no_compact_prompts:
+            proxy_args.append("--no-compact-prompts")
+        if args.max_tool_result_chars is not None:
+            proxy_args.extend(["--max-tool-result-chars", str(args.max_tool_result_chars)])
+        if args.command == "cloudflare-claude":
+            proxy_args.append("--launch-claude")
+        if getattr(args, "smoke_test", False):
+            proxy_args.append("--smoke-test")
+        sys.exit(proxy_main(proxy_args))
 
     elif args.command == "boot" or args.command == "hydrate":
         # Resolve target directory

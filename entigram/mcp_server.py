@@ -32,6 +32,14 @@ def create_mcp_server(target_dir: str = ".", host: Optional[str] = None, port: O
             return _tool_error("SCHEMA_DISCOVERY_FAILED", f"Failed to read schemas - {exc}")
 
     @mcp.tool()
+    def etg_get_impact(file_path: str) -> str:
+        """Analyze and return the localized context and impact graph for a given file."""
+        try:
+            return service.get_impact(file_path)
+        except Exception as exc:
+            return _tool_error("IMPACT_ANALYSIS_FAILED", f"Failed to analyze impact - {exc}")
+
+    @mcp.tool()
     def etg_propose_alignment(payload: str) -> str:
         """Validate and record a proposed semantic alignment."""
         try:
