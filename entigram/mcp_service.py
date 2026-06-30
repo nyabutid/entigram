@@ -14,6 +14,7 @@ _ERROR_LABELS = {
     "alignment": "Invalid Schema Alignment",
     "conflict": "Invalid Conflict",
     "schema": "Schema Discovery Failed",
+    "impact": "Impact Analysis Failed",
 }
 
 
@@ -70,6 +71,14 @@ class EntigramMCPService:
             return json.dumps({"ok": True, "schemas": schemas}, indent=2, sort_keys=True)
         except Exception as exc:
             return self._error("schema", "SCHEMA_DISCOVERY_FAILED", str(exc))
+
+    def get_impact(self, file_path: str) -> str:
+        try:
+            broker = EntigramBroker(str(self.target_dir))
+            impact = broker.analyze_impact(file_path)
+            return json.dumps({"ok": True, "impact": impact}, indent=2, sort_keys=True)
+        except Exception as exc:
+            return self._error("impact", "IMPACT_ANALYSIS_FAILED", str(exc))
 
     def propose_alignment(self, payload: Any) -> str:
         data, error = self._coerce_json_object(payload)

@@ -1,10 +1,42 @@
 import os
 import shutil
 import subprocess
+import tarfile
 import hashlib
 import yaml
 from pathlib import Path
 from typing import List, Optional
+
+
+def _safe_extract(tar: tarfile.TarFile, extract_dir: Path) -> None:
+    """Extract ``tar`` into ``extract_dir`` while blocking path traversal.
+
+    The Cloud API registry is trusted to serve well-formed package tarballs,
+    but this guard prevents a compromised or malformed archive from writing
+    outside the cache (e.g. ``../../etc/...`` or absolute entries). Symlinks
+    and hardlinks are rejected outright since package payloads are plain
+    schema/mapping files.
+    """
+    extract_base = extract_dir.resolve()
+    for member in tar.getmembers():
+        member_path = (extract_base / member.name).resolve()
+        if member_path != extract_base and extract_base not in member_path.parents:
+            raise RuntimeError(
+                f"Refusing to extract tar entry outside target directory: {member.name}"
+            )
+        if member.issym() or member.islnk():
+            raise RuntimeError(
+                f"Refusing to extract link from package tarball: {member.name}"
+            )
+    try:
+        # Prefer the stdlib ``data`` filter (Python 3.12+, backported to
+        # 3.11.4+/3.10.13+/3.9.18+); it also strips unsafe metadata.
+        tar.extractall(path=extract_dir, filter="data")
+    except TypeError:
+        # Older runtimes lack the ``filter`` argument; the member validation
+        # above is the guard on those versions.
+        tar.extractall(path=extract_dir)
+
 
 class EntigramRegistry:
     """
@@ -116,8 +148,10 @@ class EntigramRegistry:
 
     def _fetch_api_package(self, api_url: str, package_name: str) -> Optional[Path]:
         """
-        Simulates fetching a package from a Entigram API registry.
-        In a production environment, this would download a signed tarball.
+        Fetches a package tarball from the Entigram Cloud API registry and
+        extracts it into the cache. The registry is trusted to serve
+        well-formed tarballs; _safe_extract blocks path traversal as a
+        defense-in-depth guard.
         """
         if os.environ.get("ENTIGRAM_REGISTRY_OFFLINE") == "1":
             return None
@@ -138,7 +172,6 @@ class EntigramRegistry:
         
         try:
             import urllib.request
-            import tarfile
             
             req = urllib.request.Request(
                 package_url, 
@@ -160,7 +193,7 @@ class EntigramRegistry:
                     extract_dir.mkdir(parents=True, exist_ok=True)
                     
                     with tarfile.open(tar_path, "r:gz") as tar:
-                        tar.extractall(path=extract_dir)
+                        _safe_extract(tar, extract_dir)
                     
                     return cache_path
                 else:

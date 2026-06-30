@@ -43,6 +43,18 @@ start: bootstrap
 	@# Workaround for Python 3.14 Protobuf compatibility if needed
 	@export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python && $(VENV_DIR)/bin/streamlit run entigram/ui/app.py
 
+cloudflare-ollama-proxy: ## Starts an Ollama-compatible proxy backed by Cloudflare Workers AI
+	@echo "Starting Cloudflare-backed Ollama proxy on http://127.0.0.1:11435..."
+	@$(PYTHON) -m entigram.cli_runner.etg_cli cloudflare-ollama-proxy
+
+cloudflare-ollama-smoke: ## Verifies Cloudflare Workers AI auth using the local .env file
+	@echo "Testing Cloudflare Workers AI auth..."
+	@$(PYTHON) -m entigram.cli_runner.etg_cli cloudflare-ollama-proxy --smoke-test
+
+cloudflare-claude: ## Starts a dynamic Cloudflare proxy and launches Claude Code through Ollama
+	@echo "Launching Claude Code through Cloudflare Workers AI..."
+	@$(PYTHON) -m entigram.cli_runner.etg_cli cloudflare-claude
+
 test: ## Runs unit tests and Entigram-on-Entigram self-validation
 	@echo "Running Entigram Test Suite..."
 	@export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) -m unittest discover tests
