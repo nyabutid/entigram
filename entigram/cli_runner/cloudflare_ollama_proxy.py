@@ -25,6 +25,7 @@ DEFAULT_RETRY_ATTEMPTS = 3
 DEFAULT_RETRY_SLEEP_SECONDS = 2
 DEFAULT_MAX_TOOL_RESULT_CHARS = 24000
 RETRYABLE_STATUS_CODES = {408, 500, 502, 503, 504, 520, 522, 523, 524}
+KEEPALIVE_INTERVAL_SECONDS = 15.0
 
 
 @dataclass(frozen=True)
@@ -768,6 +769,24 @@ def anthropic_error_event(message: str) -> tuple[str, dict[str, Any]]:
     )
 
 
+def _stream_with_keepalive(worker_func, generator_func):
+    import threading
+    import queue
+    
+    q = queue.Queue()
+    
+    def worker():
+        try:
+            worker_func(q)
+        except Exception as e:
+            q.put(("error", e))
+            
+    t = threading.Thread(target=worker)
+    t.start()
+    
+    yield from generator_func(q)
+
+
 def make_handler(
     config: CloudflareProxyConfig,
     client: CloudflareWorkersAIClient,
@@ -850,22 +869,12 @@ def make_handler(
                 raise CloudflareProxyError("Ollama /api/chat payload must include a messages list")
             
             if payload.get("stream", True):
-                import threading
-                import queue
-                q = queue.Queue()
-                
-                def worker():
-                    try:
-                        for chunk in client.stream_chat(messages, model=model):
-                            q.put(("chunk", chunk))
-                        q.put(("done", None))
-                    except Exception as e:
-                        q.put(("error", e))
-                
-                t = threading.Thread(target=worker)
-                t.start()
-                
-                def generate_lines():
+                def worker_func(q):
+                    for chunk in client.stream_chat(messages, model=model):
+                        q.put(("chunk", chunk))
+                    q.put(("done", None))
+
+                def generate_lines(q):
                     yield {
                         "model": display_model,
                         "created_at": created_at(),
@@ -874,7 +883,7 @@ def make_handler(
                     }
                     while True:
                         try:
-                            msg_type, data = q.get(timeout=5.0)
+                            msg_type, data = q.get(timeout=KEEPALIVE_INTERVAL_SECONDS)
                             if msg_type == "done":
                                 break
                             if msg_type == "error":
@@ -902,7 +911,7 @@ def make_handler(
                             }
                     yield {"model": display_model, "created_at": created_at(), "done": True}
                 
-                write_streamed_json_lines(self, 200, generate_lines())
+                write_streamed_json_lines(self, 200, _stream_with_keepalive(worker_func, generate_lines))
             else:
                 content = client.chat(messages, model=model)
                 write_json(self, 200, non_stream_chat_response(display_model, content))
@@ -917,22 +926,12 @@ def make_handler(
             
             messages = prompt_to_messages(prompt, payload.get("system"))
             if payload.get("stream", True):
-                import threading
-                import queue
-                q = queue.Queue()
+                def worker_func(q):
+                    for chunk in client.stream_chat(messages, model=model):
+                        q.put(("chunk", chunk))
+                    q.put(("done", None))
                 
-                def worker():
-                    try:
-                        for chunk in client.stream_chat(messages, model=model):
-                            q.put(("chunk", chunk))
-                        q.put(("done", None))
-                    except Exception as e:
-                        q.put(("error", e))
-                
-                t = threading.Thread(target=worker)
-                t.start()
-                
-                def generate_lines():
+                def generate_lines(q):
                     yield {
                         "model": display_model,
                         "created_at": created_at(),
@@ -941,7 +940,7 @@ def make_handler(
                     }
                     while True:
                         try:
-                            msg_type, data = q.get(timeout=5.0)
+                            msg_type, data = q.get(timeout=KEEPALIVE_INTERVAL_SECONDS)
                             if msg_type == "done":
                                 break
                             if msg_type == "error":
@@ -969,7 +968,7 @@ def make_handler(
                             }
                     yield {"model": display_model, "created_at": created_at(), "done": True}
                 
-                write_streamed_json_lines(self, 200, generate_lines())
+                write_streamed_json_lines(self, 200, _stream_with_keepalive(worker_func, generate_lines))
             else:
                 content = client.chat(messages, model=model)
                 write_json(self, 200, non_stream_generate_response(display_model, content))
@@ -1044,22 +1043,12 @@ def make_handler(
                 })
 
             if payload.get("stream", False):
-                import threading
-                import queue
-                q = queue.Queue()
+                def worker_func(q):
+                    res = client.raw_chat_streamed(messages, model=model, tools=cf_tools)
+                    q.put(("result", res))
+                    q.put(("done", None))
                 
-                def worker():
-                    try:
-                        res = client.raw_chat_streamed(messages, model=model, tools=cf_tools)
-                        q.put(("result", res))
-                        q.put(("done", None))
-                    except Exception as e:
-                        q.put(("error", e))
-                
-                t = threading.Thread(target=worker)
-                t.start()
-                
-                def generate_sse():
+                def generate_sse(q):
                     yield sse_event_bytes(
                         "message_start",
                         {
@@ -1080,7 +1069,7 @@ def make_handler(
                     final_res = None
                     while True:
                         try:
-                            msg_type, data = q.get(timeout=5.0)
+                            msg_type, data = q.get(timeout=KEEPALIVE_INTERVAL_SECONDS)
                             if msg_type == "error":
                                 yield sse_event_bytes(*anthropic_error_event(str(data)))
                                 return
@@ -1174,7 +1163,7 @@ def make_handler(
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
                 self.end_headers()
-                for chunk in generate_sse():
+                for chunk in _stream_with_keepalive(worker_func, generate_sse):
                     self.wfile.write(chunk)
                     self.wfile.flush()
             else:

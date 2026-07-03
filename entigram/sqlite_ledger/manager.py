@@ -10,6 +10,9 @@ from entigram.governance.grounding import (
     LIFECYCLE_VERIFIED,
 )
 
+DEFAULT_SQLITE_TIMEOUT_SEC = 10.0
+DEFAULT_BUSY_TIMEOUT_MS = 10000
+
 class LedgerManager:
     def __init__(self, db_path: str):
         self.db_path = self._normalize_db_path(db_path)
@@ -18,7 +21,7 @@ class LedgerManager:
         if self.db_path == ":memory:":
             self._memory_conn = sqlite3.connect(
                 self.db_path,
-                timeout=5.0,
+                timeout=DEFAULT_SQLITE_TIMEOUT_SEC,
                 check_same_thread=False,
             )
             self._configure_connection(self._memory_conn)
@@ -41,12 +44,12 @@ class LedgerManager:
     def _get_connection(self):
         if self._memory_conn is not None:
             return self._memory_conn
-        conn = sqlite3.connect(self.db_path, timeout=5.0)
+        conn = sqlite3.connect(self.db_path, timeout=DEFAULT_SQLITE_TIMEOUT_SEC)
         self._configure_connection(conn)
         return conn
 
     def _configure_connection(self, conn):
-        conn.execute("PRAGMA busy_timeout=5000;")
+        conn.execute(f"PRAGMA busy_timeout={DEFAULT_BUSY_TIMEOUT_MS};")
         if self.db_path != ":memory:":
             mode = conn.execute("PRAGMA journal_mode=WAL;").fetchone()
             if not mode or str(mode[0]).lower() != "wal":
