@@ -124,15 +124,26 @@ def _tokenize(value: Optional[str]) -> List[str]:
 
 def _validate_package_entry(package: Dict[str, Any], name: str) -> List[PackageCatalogIssue]:
     issues = []
-    required_text_fields = ["name", "title", "description", "adapter_module"]
+    required_text_fields = ["name", "title", "description"]
     for field in required_text_fields:
         if not isinstance(package.get(field), str) or not package.get(field):
             issues.append(PackageCatalogIssue(name, field, "must be a non-empty string"))
 
-    for field in ["tags", "source_kinds", "adapters"]:
+    # adapter_module is only required when present (domain-only packages have no adapter).
+    if "adapter_module" in package:
+        if not isinstance(package["adapter_module"], str) or not package["adapter_module"]:
+            issues.append(PackageCatalogIssue(name, "adapter_module", "must be a non-empty string"))
+
+    # tags are always required; source_kinds and adapters only when the package declares an adapter.
+    tags_value = package.get("tags")
+    if not isinstance(tags_value, list) or not tags_value or not all(isinstance(t, str) and t for t in tags_value):
+        issues.append(PackageCatalogIssue(name, "tags", "must be a non-empty list of strings"))
+
+    for field in ["source_kinds", "adapters"]:
         value = package.get(field)
-        if not isinstance(value, list) or not value or not all(isinstance(item, str) and item for item in value):
-            issues.append(PackageCatalogIssue(name, field, "must be a non-empty list of strings"))
+        if value is not None:
+            if not isinstance(value, list) or not value or not all(isinstance(item, str) and item for item in value):
+                issues.append(PackageCatalogIssue(name, field, "must be a non-empty list of strings"))
 
     issues.extend(_validate_license(package.get("license"), name))
     issues.extend(_validate_publisher(package.get("publisher"), name))
