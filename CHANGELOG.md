@@ -13,6 +13,14 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.10.1](https://github.com/nyabutid/entigram/compare/v1.10.0...v1.10.1) (2026-07-03)
+
+
+### Bug Fixes
+
+* make adapter fields optional in catalog audit for domain-only packages ([7b31865](https://github.com/nyabutid/entigram/commit/7b318657f434fa847c2220c64489af1afb9e35d2))
+* make adapter_module, source_kinds, adapters optional in catalog audit ([f011e8f](https://github.com/nyabutid/entigram/commit/f011e8fdb909a79f164b49f287b71d0763b75385))
+
 ## [1.10.0](https://github.com/nyabutid/entigram/compare/v1.9.0...v1.10.0) (2026-07-03)
 
 
