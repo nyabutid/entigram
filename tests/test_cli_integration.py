@@ -4,6 +4,7 @@ import sys
 import shutil
 import tempfile
 import yaml
+import sqlite3
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
@@ -165,6 +166,227 @@ ATTRIBUTES:
         success, output = self.run_cli(['discover', '--db', db_path])
         self.assertTrue(success)
         self.assertEqual(output.strip(), "")
+
+    def test_discover_command_accepts_csv_source_adapter(self):
+        Path("orders.csv").write_text(
+            "id,total,created_at\n"
+            "ord-1,12.50,2026-07-01\n"
+        )
+
+        success, output = self.run_cli([
+            'discover',
+            '--source', 'csv',
+            '--path', 'orders.csv',
+            '--domain', 'Order',
+            '--metadata',
+        ])
+
+        self.assertTrue(success)
+        self.assertIn("Discovered by Entigram adapter: csv", output)
+        self.assertIn("ENTITY: Order", output)
+        self.assertIn("- total (Decimal, MUST)", output)
+
+    def test_discover_command_can_emit_structured_report(self):
+        Path("accounts.json").write_text('[{"id":"acct-1","owner":"Alice"}]')
+
+        success, output = self.run_cli([
+            'discover',
+            '--source', 'json',
+            '--path', 'accounts.json',
+            '--report-json',
+        ])
+
+        self.assertTrue(success)
+        self.assertIn('"adapter": "json"', output)
+        self.assertIn('"trusted": false', output)
+        self.assertIn('"findings":', output)
+
+    def test_discover_command_reports_review_findings_when_writing_schema(self):
+        conn = sqlite3.connect("legacy.db")
+        with conn:
+            conn.execute("CREATE TABLE customers (name TEXT, email TEXT);")
+        conn.close()
+
+        success, output = self.run_cli([
+            'discover',
+            '--source', 'sqlite',
+            '--path', 'legacy.db',
+            '--out', 'draft_schema.lds',
+        ])
+
+        self.assertTrue(success)
+        self.assertTrue(Path("draft_schema.lds").exists())
+        self.assertIn("Discovery review findings", output)
+        self.assertIn("NO_PRIMARY_KEY", output)
+
+    def test_package_suggest_reads_catalog(self):
+        Path("standard_package_catalog.json").write_text("""
+{
+  "packages": [
+    {
+      "name": "@entigram/salesforce",
+      "title": "Salesforce",
+      "description": "Salesforce describe metadata discovery",
+      "tags": ["crm", "salesforce"],
+      "source_kinds": ["salesforce-describe"],
+      "adapters": ["salesforce-describe"]
+    }
+  ]
+}
+""")
+
+        success, output = self.run_cli([
+            'package',
+            'suggest',
+            '--query', 'crm describe',
+        ])
+
+        self.assertTrue(success)
+        self.assertIn("@entigram/salesforce", output)
+        self.assertIn("salesforce-describe", output)
+
+    def test_package_audit_requires_provenance_metadata(self):
+        Path("standard_package_catalog.json").write_text("""
+{
+  "packages": [
+    {
+      "name": "@entigram/salesforce",
+      "title": "Salesforce",
+      "description": "Salesforce describe metadata discovery",
+      "tags": ["crm", "salesforce"],
+      "source_kinds": ["salesforce-describe"],
+      "adapters": ["salesforce-describe"],
+      "adapter_module": "@entigram/salesforce/source_adapter.py"
+    }
+  ]
+}
+""")
+
+        success, output = self.run_cli([
+            'package',
+            'audit',
+        ])
+
+        self.assertFalse(success)
+        self.assertIn("license", output)
+        self.assertIn("provenance", output)
+
+    def test_package_audit_accepts_complete_catalog_metadata(self):
+        Path("standard_package_catalog.json").write_text("""
+{
+  "packages": [
+    {
+      "name": "@entigram/salesforce",
+      "title": "Salesforce",
+      "description": "Salesforce describe metadata discovery",
+      "tags": ["crm", "salesforce"],
+      "source_kinds": ["salesforce-describe"],
+      "adapters": ["salesforce-describe"],
+      "adapter_module": "@entigram/salesforce/source_adapter.py",
+      "license": {"spdx": "Apache-2.0", "notice_required": true},
+      "publisher": {"name": "Entigram", "namespace": "@entigram"},
+      "provenance": {
+        "source_repository": "https://github.com/entigram/entigram-standard-packages",
+        "package_path": "@entigram/salesforce",
+        "release_channel": "standard",
+        "signed": true
+      },
+      "certification": {
+        "status": "community",
+        "compatibility": "entigram>=1.7",
+        "test_evidence": ["mock-endpoint"],
+        "trademark_use": "nominative"
+      }
+    }
+  ]
+}
+""")
+
+        success, output = self.run_cli([
+            'package',
+            'audit',
+        ])
+
+        self.assertTrue(success)
+        self.assertIn("Package catalog audit passed", output)
+
+    def test_package_signing_commands_support_catalog_audit(self):
+        package_dir = Path("@entigram/demo")
+        package_dir.mkdir(parents=True)
+        (package_dir / "schema.lds").write_text("ENTITY: Demo\nATTRIBUTES:\n  - id (String, PK)\n")
+        (package_dir / "source_adapter.py").write_text("ADAPTER_NAME = 'demo'\n")
+        Path("standard_package_catalog.json").write_text("""
+{
+  "packages": [
+    {
+      "name": "@entigram/demo",
+      "title": "Demo",
+      "description": "Demo package",
+      "tags": ["demo"],
+      "source_kinds": ["demo-source"],
+      "adapters": ["demo-source"],
+      "adapter_module": "@entigram/demo/source_adapter.py",
+      "license": {"spdx": "Apache-2.0", "notice_required": true},
+      "publisher": {"name": "Entigram", "namespace": "@entigram"},
+      "provenance": {
+        "source_repository": "https://github.com/entigram/entigram-standard-packages",
+        "package_path": "@entigram/demo",
+        "release_channel": "standard",
+        "signed": true
+      },
+      "certification": {
+        "status": "community",
+        "compatibility": "entigram>=1.7",
+        "test_evidence": ["mock-endpoint"],
+        "trademark_use": "nominative"
+      }
+    }
+  ]
+}
+""")
+
+        success, output = self.run_cli([
+            'package',
+            'sign',
+            '--package', str(package_dir),
+            '--catalog', 'standard_package_catalog.json',
+            '--key', 'keys/package.pem',
+        ])
+
+        self.assertTrue(success, output)
+        self.assertTrue((package_dir / "package.manifest.json").exists())
+        self.assertTrue((package_dir / "package.manifest.sig").exists())
+
+        success, output = self.run_cli(['package', 'verify', '--package', str(package_dir)])
+        self.assertTrue(success, output)
+        self.assertIn("Package verification passed", output)
+
+        success, output = self.run_cli([
+            'package',
+            'audit',
+            '--catalog', 'standard_package_catalog.json',
+            '--verify-signatures',
+            '--packages-root', '.',
+        ])
+        self.assertTrue(success, output)
+        self.assertIn("Package catalog audit passed", output)
+
+        success, output = self.run_cli([
+            'package',
+            'sign-catalog',
+            '--catalog', 'standard_package_catalog.json',
+            '--key', 'keys/package.pem',
+        ])
+        self.assertTrue(success, output)
+        self.assertTrue(Path("standard_package_catalog.json.sig").exists())
+
+        success, output = self.run_cli([
+            'package',
+            'verify-catalog',
+            '--catalog', 'standard_package_catalog.json',
+        ])
+        self.assertTrue(success, output)
+        self.assertIn("Catalog verification passed", output)
 
     @patch('entigram.cli_runner.etg_cli.launch_ui')
     def test_no_command_prints_help_without_launching_ui(self, mock_launch_ui):

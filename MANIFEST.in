@@ -3,3 +3,5 @@ recursive-include entigram/templates/schema_modeling .gitignore
 recursive-include entigram/ui/media *.svg
 include README.md
 include LICENSE
+include NOTICE
+include TRADEMARKS.md
