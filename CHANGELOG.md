@@ -13,6 +13,14 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.10.0](https://github.com/nyabutid/entigram/compare/v1.9.0...v1.10.0) (2026-07-03)
+
+
+### Features
+
+* add discovery review and signed package catalog ([6abed8f](https://github.com/nyabutid/entigram/commit/6abed8f237029a4d7558022f18e3f89cab51ff8d))
+* add discovery review and signed package catalog ([a55c781](https://github.com/nyabutid/entigram/commit/a55c78172b3c5a55577d429916b08afcd27b4990))
+
 ## [1.9.0](https://github.com/nyabutid/entigram/compare/v1.8.0...v1.9.0) (2026-06-30)
 
 
