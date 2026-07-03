@@ -27,6 +27,8 @@ boot.json
 .etg/*.db-journal
 .etg/audit_ed25519_private.pem
 **/.etg/audit_ed25519_private.pem
+.etg/package_signing_ed25519_private.pem
+**/.etg/package_signing_ed25519_private.pem
 
 # Local session and debug artifacts
 projects.json

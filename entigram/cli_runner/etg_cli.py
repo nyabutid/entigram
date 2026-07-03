@@ -63,6 +63,51 @@ def load_plugins(subparsers):
             except Exception as e:
                 print(f"Failed to load plugin {plugin_file.name}: {e}")
 
+def _catalog_metadata_for_package(catalog_path: str, package_dir: str) -> dict:
+    from entigram.package_catalog import load_package_catalog
+
+    catalog = load_package_catalog(catalog_path)
+    package_path = Path(package_dir).expanduser().resolve()
+    candidates = {package_path.name}
+    if package_path.parent.name:
+        candidates.add(f"{package_path.parent.name}/{package_path.name}")
+
+    for package in catalog.get("packages", []):
+        if package.get("name") in candidates:
+            return package
+
+    package_parts = package_path.parts
+    for package in catalog.get("packages", []):
+        name_parts = tuple((package.get("name") or "").split("/"))
+        if name_parts and package_parts[-len(name_parts):] == name_parts:
+            return package
+
+    raise ValueError(f"catalog entry not found for package: {package_dir}")
+
+
+def _format_discovery_findings(findings) -> str:
+    if not findings:
+        return ""
+    severity_rank = {"error": 0, "warning": 1, "info": 2}
+    sorted_findings = sorted(
+        findings,
+        key=lambda item: (severity_rank.get(item.severity, 99), item.entity or "", item.attribute or "", item.code),
+    )
+    counts = {}
+    for finding in sorted_findings:
+        counts[finding.severity] = counts.get(finding.severity, 0) + 1
+    count_text = ", ".join(f"{severity}: {count}" for severity, count in sorted(counts.items()))
+    lines = [f"Discovery review findings ({count_text}):"]
+    for finding in sorted_findings:
+        location = finding.entity or "<source>"
+        if finding.attribute:
+            location = f"{location}.{finding.attribute}"
+        lines.append(f" - [{finding.severity.upper()}] {finding.code} at {location}: {finding.message}")
+        if finding.recommendation:
+            lines.append(f"   Recommendation: {finding.recommendation}")
+    return "\n".join(lines)
+
+
 def get_hydration_vector(target_path: Path, compact: bool = False) -> str:
     """Deterministic boot sequence to align LLM state vector by flattening ledger and Schema."""
     entigram_dir = target_path / ".etg"
@@ -231,9 +276,15 @@ def main():
     build_parser.add_argument("--format", choices=["sql", "ttl", "mermaid"], default="sql", help="Output format")
 
     # discover command
-    discover_parser = subparsers.add_parser("discover", help="Reverse-engineer a Schema from an existing SQLite database")
-    discover_parser.add_argument("--db", required=True, help="Path to the SQLite database file (.db or .sqlite)")
+    discover_parser = subparsers.add_parser("discover", help="Discover a draft Schema from an external source")
+    discover_parser.add_argument("--db", help="Path to a SQLite database file (.db or .sqlite); compatibility alias for --source sqlite --path")
+    discover_parser.add_argument("--path", help="Path to the source to inspect")
+    discover_parser.add_argument("--source", default="auto", help="Discovery source adapter")
+    discover_parser.add_argument("--adapter-module", help="Path to a standard-package source_adapter.py module to register before discovery")
+    discover_parser.add_argument("--domain", help="Domain/entity name for file-based discovery")
     discover_parser.add_argument("--out", help="Output Schema file (prints to stdout if omitted)")
+    discover_parser.add_argument("--metadata", action="store_true", help="Include discovery provenance as a Schema comment")
+    discover_parser.add_argument("--report-json", action="store_true", help="Print a structured discovery report instead of only LDS")
 
     # package command
     pkg_parser = subparsers.add_parser("package", help="Package management")
@@ -253,6 +304,47 @@ def main():
     install_pkg_parser = pkg_subparsers.add_parser("install", help="Install a package from a registered remote repository")
     install_pkg_parser.add_argument("--name", required=True, help="Package name")
     install_pkg_parser.add_argument("--dir", default=".", help="Target directory")
+
+    suggest_pkg_parser = pkg_subparsers.add_parser("suggest", help="Suggest standard packages from a package catalog")
+    suggest_pkg_parser.add_argument("--query", required=True, help="Use case, source system, or adapter need")
+    suggest_pkg_parser.add_argument("--catalog", default="standard_package_catalog.json", help="Path to the standard package catalog JSON")
+    suggest_pkg_parser.add_argument("--limit", type=int, default=5, help="Maximum suggestions to print")
+    suggest_pkg_parser.add_argument("--json", action="store_true", help="Print machine-readable suggestions")
+
+    audit_pkg_parser = pkg_subparsers.add_parser("audit", help="Audit standard package catalog metadata")
+    audit_pkg_parser.add_argument("--catalog", default="standard_package_catalog.json", help="Path to the standard package catalog JSON")
+    audit_pkg_parser.add_argument("--json", action="store_true", help="Print machine-readable audit results")
+    audit_pkg_parser.add_argument("--verify-signatures", action="store_true", help="Also verify package signatures for catalog entries")
+    audit_pkg_parser.add_argument("--packages-root", help="Root directory containing catalog package paths; defaults to catalog parent")
+
+    manifest_pkg_parser = pkg_subparsers.add_parser("manifest", help="Generate a deterministic package manifest")
+    manifest_pkg_parser.add_argument("--package", required=True, help="Path to a package directory")
+    manifest_pkg_parser.add_argument("--catalog", help="Optional catalog JSON used to embed package metadata")
+    manifest_pkg_parser.add_argument("--out", help="Manifest output path; defaults to package.manifest.json")
+    manifest_pkg_parser.add_argument("--json", action="store_true", help="Print manifest JSON")
+
+    sign_pkg_parser = pkg_subparsers.add_parser("sign", help="Sign a package manifest with an Ed25519 key")
+    sign_pkg_parser.add_argument("--package", required=True, help="Path to a package directory")
+    sign_pkg_parser.add_argument("--catalog", help="Optional catalog JSON used to generate/update manifest before signing")
+    sign_pkg_parser.add_argument("--key", help="Ed25519 private key path; auto-created at .etg/package_signing_ed25519_private.pem if omitted")
+    sign_pkg_parser.add_argument("--no-manifest", action="store_true", help="Do not regenerate package.manifest.json before signing")
+    sign_pkg_parser.add_argument("--json", action="store_true", help="Print machine-readable signing result")
+
+    verify_pkg_parser = pkg_subparsers.add_parser("verify", help="Verify package manifest hashes and signature")
+    verify_pkg_parser.add_argument("--package", required=True, help="Path to a package directory")
+    verify_pkg_parser.add_argument("--no-signature-required", action="store_true", help="Warn instead of failing when signature is absent")
+    verify_pkg_parser.add_argument("--json", action="store_true", help="Print machine-readable verification result")
+
+    sign_catalog_parser = pkg_subparsers.add_parser("sign-catalog", help="Sign a standard package catalog")
+    sign_catalog_parser.add_argument("--catalog", default="standard_package_catalog.json", help="Path to catalog JSON")
+    sign_catalog_parser.add_argument("--key", help="Ed25519 private key path; auto-created at .etg/package_signing_ed25519_private.pem if omitted")
+    sign_catalog_parser.add_argument("--out", help="Signature output path; defaults to <catalog>.sig")
+    sign_catalog_parser.add_argument("--json", action="store_true", help="Print machine-readable signing result")
+
+    verify_catalog_parser = pkg_subparsers.add_parser("verify-catalog", help="Verify a signed package catalog")
+    verify_catalog_parser.add_argument("--catalog", default="standard_package_catalog.json", help="Path to catalog JSON")
+    verify_catalog_parser.add_argument("--signature", help="Catalog signature path; defaults to <catalog>.sig")
+    verify_catalog_parser.add_argument("--json", action="store_true", help="Print machine-readable verification result")
 
     # registry command
     registry_parser = subparsers.add_parser("registry", help="Manage package registries")
@@ -767,16 +859,31 @@ def main():
             sys.exit(1)
     
     elif args.command == "discover":
-        from entigram.schema_compiler.discoverer import DomainDiscoverer
+        from entigram.schema_compiler.discoverer import discover_source, load_discovery_adapter_module
         try:
-            discoverer = DomainDiscoverer(args.db)
-            schema_content = discoverer.discover_schema()
+            source_path = args.path or args.db
+            if not source_path:
+                raise ValueError("discover requires --path or --db")
+            if args.adapter_module:
+                load_discovery_adapter_module(args.adapter_module)
+            source = "sqlite" if args.db and not args.path and args.source == "auto" else args.source
+            discovery = discover_source(source_path, source=source, domain_name=args.domain)
+            schema_content = discovery.to_schema(include_metadata_comment=args.metadata)
+            review_summary = _format_discovery_findings(discovery.findings)
             if args.out:
                 with open(args.out, 'w') as f:
                     f.write(schema_content)
                 print(f"✅ Discovered Schema saved to {args.out}")
+                if args.report_json:
+                    print(json.dumps(discovery.to_dict(), indent=2, sort_keys=True))
+                elif review_summary:
+                    print(review_summary)
+            elif args.report_json:
+                print(json.dumps(discovery.to_dict(), indent=2, sort_keys=True))
             else:
                 print(schema_content)
+                if review_summary:
+                    print(review_summary, file=sys.stderr)
         except Exception as e:
             print(str(e))
             sys.exit(1)
@@ -817,6 +924,116 @@ def main():
             from entigram.registry import EntigramRegistry
             registry = EntigramRegistry(args.dir)
             if not registry.install_package(args.name):
+                sys.exit(1)
+        elif args.pkg_command == "suggest":
+            from dataclasses import asdict
+            from entigram.package_catalog import (
+                format_package_suggestions,
+                load_package_catalog,
+                suggest_packages,
+            )
+            catalog = load_package_catalog(args.catalog)
+            suggestions = suggest_packages(catalog, args.query, limit=args.limit)
+            if args.json:
+                print(json.dumps([asdict(suggestion) for suggestion in suggestions], indent=2))
+            elif suggestions:
+                print(format_package_suggestions(suggestions))
+            else:
+                print("No matching standard packages found.")
+        elif args.pkg_command == "audit":
+            from dataclasses import asdict
+            from entigram.package_catalog import (
+                PackageCatalogIssue,
+                format_package_catalog_issues,
+                load_package_catalog,
+                validate_package_catalog,
+            )
+            from entigram.package_signing import verify_package
+            catalog = load_package_catalog(args.catalog)
+            issues = validate_package_catalog(catalog)
+            signature_results = []
+            if args.verify_signatures:
+                catalog_path = Path(args.catalog).expanduser().resolve()
+                packages_root = Path(args.packages_root).expanduser().resolve() if args.packages_root else catalog_path.parent
+                for package in catalog.get("packages", []):
+                    package_path = packages_root / package.get("name", "")
+                    verification = verify_package(str(package_path), require_signature=package.get("provenance", {}).get("signed") is True)
+                    signature_results.append(asdict(verification))
+                    for error in verification.errors:
+                        issues.append(PackageCatalogIssue(
+                            package=package.get("name", "<unknown>"),
+                            field="signature",
+                            message=error,
+                        ))
+            if args.json:
+                serialized_issues = [{"package": issue.package, "field": issue.field, "message": issue.message} for issue in issues]
+                print(json.dumps({"ok": not issues, "issues": serialized_issues, "signatures": signature_results}, indent=2))
+            elif issues:
+                print(format_package_catalog_issues(issues))
+            else:
+                print("Package catalog audit passed.")
+            if issues:
+                sys.exit(1)
+        elif args.pkg_command == "manifest":
+            from entigram.package_signing import create_package_manifest, write_package_manifest
+            metadata = _catalog_metadata_for_package(args.catalog, args.package) if args.catalog else None
+            manifest = create_package_manifest(args.package, metadata)
+            path = write_package_manifest(args.package, manifest, out=args.out)
+            if args.json:
+                print(json.dumps(manifest, indent=2, sort_keys=True))
+            else:
+                print(f"Package manifest written: {path}")
+                print(f"SHA-256: {manifest['sha256']}")
+        elif args.pkg_command == "sign":
+            from entigram.package_signing import create_package_manifest, sign_package_manifest, write_package_manifest
+            if not args.no_manifest:
+                metadata = _catalog_metadata_for_package(args.catalog, args.package) if args.catalog else None
+                write_package_manifest(args.package, create_package_manifest(args.package, metadata))
+            signature = sign_package_manifest(args.package, key_path=args.key)
+            if args.json:
+                print(json.dumps(signature, indent=2, sort_keys=True))
+            else:
+                print("Package signed.")
+                print(f"Key: {signature['signing_key_path']}")
+                print(f"Key ID: {signature['key_id']}")
+                print(f"Manifest SHA-256: {signature['manifest_sha256']}")
+        elif args.pkg_command == "verify":
+            from dataclasses import asdict
+            from entigram.package_signing import verify_package
+            verification = verify_package(args.package, require_signature=not args.no_signature_required)
+            if args.json:
+                print(json.dumps(asdict(verification), indent=2))
+            elif verification.ok:
+                print("Package verification passed.")
+                if verification.key_id:
+                    print(f"Key ID: {verification.key_id}")
+            else:
+                for error in verification.errors:
+                    print(error)
+            if not verification.ok:
+                sys.exit(1)
+        elif args.pkg_command == "sign-catalog":
+            from entigram.package_signing import sign_catalog
+            signature = sign_catalog(args.catalog, key_path=args.key, out=args.out)
+            if args.json:
+                print(json.dumps(signature, indent=2, sort_keys=True))
+            else:
+                print(f"Catalog signed: {signature['signature_path']}")
+                print(f"Key: {signature['signing_key_path']}")
+                print(f"Key ID: {signature['key_id']}")
+                print(f"Catalog SHA-256: {signature['catalog_sha256']}")
+        elif args.pkg_command == "verify-catalog":
+            from entigram.package_signing import verify_catalog
+            verification = verify_catalog(args.catalog, signature_path=args.signature)
+            if args.json:
+                print(json.dumps(verification, indent=2))
+            elif verification["ok"]:
+                print("Catalog verification passed.")
+                print(f"Key ID: {verification['key_id']}")
+            else:
+                for error in verification["errors"]:
+                    print(error)
+            if not verification["ok"]:
                 sys.exit(1)
         else:
             pkg_parser.print_help()

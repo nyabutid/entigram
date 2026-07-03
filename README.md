@@ -84,6 +84,60 @@ The server treats `schema_paths` as the closed-world boundary. Demo files,
 templates, drafts, and unrelated LDS files are not exposed unless explicitly
 listed.
 
+### 5. Discover Draft Schemas from External Sources
+Discovery is an intake path, not an authorization path. Entigram can inspect
+external sources and emit draft LDS, but discovered entities, attributes,
+relationships, and alignments must still be reviewed before they become
+operational facts.
+
+```bash
+etg discover --source sqlite --path legacy.db --metadata
+etg discover --source csv --path partner_orders.csv --domain PartnerOrder
+etg discover --source json --path accounts.json --report-json
+etg discover --adapter-module @entigram/salesforce/source_adapter.py \
+  --source salesforce-describe --path http://127.0.0.1:8080/describe
+```
+
+Discovery includes an advisory model review. JSON reports include structured
+`findings`, and human-readable summaries are emitted when findings are present.
+Initial checks flag missing primary keys, FK-like columns without constraints,
+multi-entity sources without relationships, composite keys, wide entities,
+repeating column groups, JSON blob fields, low-confidence inferred fields, and
+low-cardinality strings that may be better modeled as enums or reference data.
+
+The core runtime ships the source-adapter contract and local SQLite/CSV/JSON
+adapters. Cloud, SaaS, warehouse, catalog, and domain-specific adapters should
+ship as Entigram standard packages that register source adapters with core at
+runtime. This keeps Entigram cloud-agnostic while allowing package-level
+coverage for AWS, Azure, GCP, Salesforce, OpenAPI, dbt, and other sources.
+Database and infrastructure packages can cover PostgreSQL, MySQL/MariaDB,
+SQL Server, Oracle, MongoDB, Neo4j, Snowflake, Terraform/OpenTofu, and similar
+systems without making those clients core runtime dependencies.
+
+Database standard packages should prefer Docker-hosted client tools over host
+binary installation. For example, a PostgreSQL package should run `psql` with
+`docker exec` against a `postgres` or `postgis/postgis` container, a MySQL or
+MariaDB package should run `mysql` or `mariadb` inside the matching database
+container, and SQL Server discovery should run `sqlcmd` from the SQL Server
+container image. Host-installed clients are a fallback for operators who
+already manage those binaries, not the default Entigram package path.
+
+Standard packages can be signed without changing the install experience for
+local exploration. Publishers generate deterministic manifests and Ed25519
+signatures, while CI or registry workflows can opt into enforcement:
+
+```bash
+etg package sign --package @entigram/postgres --catalog standard_package_catalog.json
+etg package verify --package @entigram/postgres
+etg package sign-catalog --catalog standard_package_catalog.json
+etg package verify-catalog --catalog standard_package_catalog.json
+etg package audit --catalog standard_package_catalog.json --verify-signatures
+```
+
+If `--key` is omitted, Entigram creates `.etg/package_signing_ed25519_private.pem`
+and keeps it out of version control. Package users can still suggest, inspect,
+and install packages without managing signing keys.
+
 Before returning work to a human reviewer:
 ```bash
 etg broker guard
@@ -163,6 +217,10 @@ Agents and routers may suggest alignments from schema similarity, partner data, 
 ## ⚖️ License
 
 Entigram Core is Open Source under the Apache License 2.0.
+Redistributions must preserve the Apache-2.0 license and the project
+[`NOTICE`](NOTICE). Use of the Entigram name, certification language, registry
+branding, or hosted-service marks is governed separately by
+[`TRADEMARKS.md`](TRADEMARKS.md).
 
 ---
 *Entigram: Grounding agentic autonomy in enterprise reality.*

@@ -1,0 +1,91 @@
+import json
+import shutil
+import tempfile
+import unittest
+from pathlib import Path
+
+from entigram.package_signing import (
+    MANIFEST_NAME,
+    SIGNATURE_NAME,
+    create_package_manifest,
+    sign_catalog,
+    sign_package_manifest,
+    verify_catalog,
+    verify_package,
+    write_package_manifest,
+)
+
+
+class TestPackageSigning(unittest.TestCase):
+    def setUp(self):
+        self.test_dir = Path(tempfile.mkdtemp())
+        self.package_dir = self.test_dir / "@entigram" / "demo"
+        self.package_dir.mkdir(parents=True)
+        (self.package_dir / "schema.lds").write_text("ENTITY: Demo\nATTRIBUTES:\n  - id (String, PK)\n")
+        (self.package_dir / "source_adapter.py").write_text("ADAPTER_NAME = 'demo'\n")
+        (self.package_dir / "__pycache__").mkdir()
+        (self.package_dir / "__pycache__" / "source_adapter.cpython-312.pyc").write_bytes(b"ignored")
+        (self.package_dir / ".etg").mkdir()
+        (self.package_dir / ".etg" / "package_signing_ed25519_private.pem").write_text("ignored")
+        (self.package_dir / ".etg" / "entigram.yaml").write_text("local workspace state")
+        self.key_path = self.test_dir / "keys" / "package.pem"
+
+    def tearDown(self):
+        shutil.rmtree(self.test_dir)
+
+    def test_manifest_is_deterministic_and_skips_generated_files(self):
+        metadata = {"name": "@entigram/demo", "title": "Demo"}
+        manifest = create_package_manifest(str(self.package_dir), metadata)
+        write_package_manifest(str(self.package_dir), manifest)
+        (self.package_dir / SIGNATURE_NAME).write_text("{}\n")
+
+        regenerated = create_package_manifest(str(self.package_dir), metadata)
+
+        self.assertEqual(manifest, regenerated)
+        paths = {item["path"] for item in manifest["files"]}
+        self.assertEqual(paths, {"schema.lds", "source_adapter.py"})
+        self.assertEqual(manifest["package"], "@entigram/demo")
+
+    def test_package_signature_verifies_and_detects_tampering(self):
+        manifest = create_package_manifest(str(self.package_dir), {"name": "@entigram/demo"})
+        write_package_manifest(str(self.package_dir), manifest)
+        signature = sign_package_manifest(str(self.package_dir), key_path=str(self.key_path))
+
+        verification = verify_package(str(self.package_dir))
+        self.assertTrue(verification.ok)
+        self.assertEqual(verification.key_id, signature["key_id"])
+
+        (self.package_dir / "schema.lds").write_text("ENTITY: Demo\nATTRIBUTES:\n  - id (String, PK)\n  - name (String)\n")
+        verification = verify_package(str(self.package_dir))
+
+        self.assertFalse(verification.ok)
+        self.assertIn("manifest sha256 mismatch", verification.errors)
+        self.assertTrue(any(error.startswith("sha256 mismatch: schema.lds") for error in verification.errors))
+
+    def test_unsigned_package_can_warn_instead_of_failing(self):
+        manifest = create_package_manifest(str(self.package_dir), {"name": "@entigram/demo"})
+        write_package_manifest(str(self.package_dir), manifest)
+
+        verification = verify_package(str(self.package_dir), require_signature=False)
+
+        self.assertTrue(verification.ok)
+        self.assertIn(f"missing {SIGNATURE_NAME}", verification.warnings)
+
+    def test_catalog_signature_verifies_and_detects_tampering(self):
+        catalog_path = self.test_dir / "standard_package_catalog.json"
+        catalog_path.write_text(json.dumps({"packages": [{"name": "@entigram/demo"}]}, indent=2))
+        signature = sign_catalog(str(catalog_path), key_path=str(self.key_path))
+
+        verification = verify_catalog(str(catalog_path))
+        self.assertTrue(verification["ok"])
+        self.assertEqual(verification["key_id"], signature["key_id"])
+
+        catalog_path.write_text(json.dumps({"packages": [{"name": "@entigram/changed"}]}, indent=2))
+        verification = verify_catalog(str(catalog_path))
+
+        self.assertFalse(verification["ok"])
+        self.assertIn("signed artifact sha256 mismatch", verification["errors"])
+
+
+if __name__ == "__main__":
+    unittest.main()
