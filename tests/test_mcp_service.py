@@ -260,4 +260,4 @@ ENTITY: Ghost {
             ledger.close()
 
         self.assertEqual(journal_mode.lower(), "wal")
-        self.assertEqual(busy_timeout, 5000)
+        self.assertEqual(busy_timeout, 10000)

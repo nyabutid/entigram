@@ -1520,7 +1520,7 @@ RELATIONSHIPS:
                                 cmd_args,
                                 capture_output=True,
                                 text=True,
-                                timeout=120,
+                                timeout=getattr(args, "timeout", 120),
                                 cwd=str(broker.target_dir),
                             )
                             passed = proc.returncode == 0
@@ -1556,7 +1556,7 @@ RELATIONSHIPS:
                                 artifact_ref=cmd,
                                 expectation_name=item["name"],
                                 command=cmd,
-                                result_summary="Timeout after 120s",
+                                result_summary=f"Timeout after {getattr(args, 'timeout', 120)}s",
                                 passed=False,
                                 agent_id=agent_id,
                             )

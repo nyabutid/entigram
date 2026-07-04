@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from .commissioner import Commissioner, STATUS_BLOCKED, STATUS_PASSED
 
+DEFAULT_SUBPROCESS_TIMEOUT = 120
+
 if TYPE_CHECKING:
     from entigram.sqlite_ledger.manager import LedgerManager
 
@@ -38,7 +40,7 @@ class ExpectationGuard:
         agent_id: Optional[str] = None,
         expectation_name: Optional[str] = None,
         run_validation_checks: bool = True,
-        timeout: int = 120,
+        timeout: int = DEFAULT_SUBPROCESS_TIMEOUT,
     ) -> Dict[str, Any]:
         proofs = proofs or []
         blocked_checks = blocked_checks or []
