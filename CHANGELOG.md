@@ -13,6 +13,16 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.12.0](https://github.com/nyabutid/entigram/compare/v1.11.0...v1.12.0) (2026-07-05)
+
+
+### Features
+
+* add model gate feedback retries ([c56d659](https://github.com/nyabutid/entigram/commit/c56d6595abb2bccbc25bc489661072ff8d6ebfad))
+* add model gate feedback retries ([8c9a3e4](https://github.com/nyabutid/entigram/commit/8c9a3e460f45b697a815507a1a46339390bde99e))
+* add structured halt event json ([bbf8bef](https://github.com/nyabutid/entigram/commit/bbf8bef47bb104d3ba8bd6c1d970d59af6385b4f))
+* add structured halt event json ([5ffcc17](https://github.com/nyabutid/entigram/commit/5ffcc173e6e582b50029a25958ae1390f29bf6bc))
+
 ## [1.11.0](https://github.com/nyabutid/entigram/compare/v1.10.1...v1.11.0) (2026-07-05)
 
 
