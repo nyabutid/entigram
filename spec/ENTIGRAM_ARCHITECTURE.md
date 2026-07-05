@@ -16,12 +16,7 @@ Entigram utilizes the data modeling philosophy of the late John Carlis.
 * For "Blank Canvas" domains, the agent must interview the human expert iteratively (one specific cardinality/boundary question at a time) to discover the Schema.
 
 ## Architecture Scope
-Entigram supports local domain modeling, vendor boundaries, and multi-domain federation patterns.
-
-
-
-## Current Architecture
-Entigram focuses on closed-world routing, verified semantic alignments, and deterministic conflict handling for agent workflows.
+Entigram focuses on closed-world routing, verified semantic alignments, and deterministic conflict handling for agent workflows. Workspaces can model single domains, vendor boundaries, or multi-domain federations while preserving local authority over each schema.
 
 ## Competitive Role
 Entigram is not intended to replace agent frameworks, MCP, knowledge graphs, or enterprise IAM platforms. It complements them as a semantic governance layer:

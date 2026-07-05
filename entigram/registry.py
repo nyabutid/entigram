@@ -58,7 +58,7 @@ class EntigramRegistry:
 
     def get_registries(self) -> List[str]:
         """Returns a list of all configured registries, including the default Cloud API."""
-        # Primary: managed Entigram registry
+        # Primary: managed Entigram registry.
         regs = ["https://api.entigram.ai/v1/registry"]
         
         # Secondary: Community Git Registry
@@ -159,8 +159,7 @@ class EntigramRegistry:
         url_hash = hashlib.md5(f"{api_url}/{package_name}".encode()).hexdigest()
         cache_path = self.global_cache_dir / "api_cache" / url_hash
         
-        # Managed delivery path for signed semantic mapping packages. 
-        # Managed, high-availability delivery of semantic mappings.
+        # Managed delivery path for signed semantic mapping packages.
         print(f"🌐 [ENTIGRAM CLOUD] Resolving '{package_name}' via API: {api_url}")
         
         token = os.environ.get("ENTIGRAM_TOKEN")
