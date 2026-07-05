@@ -47,6 +47,36 @@ def _halt_response(warden, fallback_code, fallback_message, **context):
     }
 
 
+def _schema_payload_halt_event(halt_code, message, payload, error=None):
+    details = {"error": str(error)} if error else {}
+    return {
+        "halt_code": halt_code,
+        "message": message,
+        "expected_schema": {
+            "format": "Entigram LDS",
+            "required_blocks": ["ENTITY"],
+            "example": "ENTITY: Name\nATTRIBUTES:\n  - .id (UUID)\n  - name (String)",
+        },
+        "actual_payload": {"raw_payload": payload},
+        "suggested_fix": (
+            "Return only valid LDS ENTITY and RELATIONSHIP blocks. "
+            "Do not include prose, markdown fences, or explanatory text."
+        ),
+        "details": details,
+    }
+
+
+def _model_repair_prompt(base_prompt, halt_event, retry_number, retry_limit):
+    return (
+        f"{base_prompt}\n\n"
+        "The previous SCHEMA PAYLOAD failed Entigram Gate validation.\n"
+        f"RETRY: {retry_number}/{retry_limit}\n"
+        "HALT_EVENT:\n"
+        f"{json.dumps(halt_event, indent=2, sort_keys=True)}\n\n"
+        "Return a corrected SCHEMA PAYLOAD only:"
+    )
+
+
 def get_default_engine():
     """Probes the system for available AI agents (Antigravity, Claude, or Codex)."""
     if shutil.which("agy"):
@@ -601,6 +631,17 @@ def main():
     model_parser.add_argument("--dir", help="Target directory")
     model_parser.add_argument("--engine", help="Override CLI Engine")
     model_parser.add_argument("--append", action="store_true", help="Append to draft_schema.lds instead of printing only")
+    model_parser.add_argument(
+        "--max-repair-attempts",
+        type=int,
+        default=3,
+        help="Maximum Gate feedback retries after the first invalid payload",
+    )
+    model_parser.add_argument(
+        "--no-auto-repair",
+        action="store_true",
+        help="Disable automatic Gate feedback retries",
+    )
 
     # cloud command
     cloud_parser = subparsers.add_parser("cloud", help="Entigram Cloud Managed Services")
@@ -1417,41 +1458,77 @@ RELATIONSHIPS:
         # 3. Headless Execution (Intercepting the Payload)
         print(f"🧠 Intercepting domain payload from {engine}...")
         from entigram.cli_runner.runner import execute_headless_agy
-        
-        payload = execute_headless_agy(full_prompt, target_dir=target_dir)
-        
-        if not payload:
-            print("❌ Failed to intercept payload.")
-            sys.exit(1)
-
-        print("\n--- INTERCEPTED PAYLOAD ---")
-        print(payload)
-        print("---------------------------\n")
 
         # 4. Validation & Enforcement
         from entigram.schema_compiler.parser import SchemaParser
-        try:
-            parser = SchemaParser(payload)
-            entities, rels = parser.parse()
-            if not entities:
-                print("⚠️  Warning: No entities detected in payload.")
+        repair_limit = 0 if getattr(args, "no_auto_repair", False) else max(0, args.max_repair_attempts)
+        prompt = full_prompt
+        payload = ""
+        entities = {}
+        rels = []
+        halt_event = None
+
+        for attempt in range(repair_limit + 1):
+            if attempt:
+                print(f"🔁 Gate retry {attempt}/{repair_limit}: sending HaltEvent feedback to {engine}...")
+
+            payload = execute_headless_agy(prompt, target_dir=target_dir)
+
+            if not payload:
+                halt_event = _schema_payload_halt_event(
+                    "EMPTY_PAYLOAD",
+                    "The model returned an empty schema payload.",
+                    payload,
+                )
             else:
-                print(f"✅ Validated: {len(entities)} entities and {len(rels)} relationships found.")
-                
-                if args.append:
-                    draft_path = Path(target_dir) / "draft_schema.lds"
-                    with open(draft_path, "a") as f:
-                        f.write(f"\n\n/* Autonomous model added on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} */\n")
-                        f.write(payload)
-                    print(f"📝 Appended to {draft_path}")
-                    
-                    # Auto-sync ontology
-                    from entigram.broker import EntigramBroker
-                    EntigramBroker(target_dir).sync_all_ontologies()
-                    print("🛡️  Ontology synchronized.")
-        except Exception as e:
-            print(f"❌ Failed to parse or enforce payload: {e}")
-            sys.exit(1)
+                print("\n--- INTERCEPTED PAYLOAD ---")
+                print(payload)
+                print("---------------------------\n")
+                try:
+                    parser = SchemaParser(payload)
+                    entities, rels = parser.parse()
+                    if not entities:
+                        halt_event = _schema_payload_halt_event(
+                            "NO_ENTITIES",
+                            "No ENTITY blocks were detected in the schema payload.",
+                            payload,
+                        )
+                    else:
+                        halt_event = None
+                        break
+                except Exception as e:
+                    halt_event = _schema_payload_halt_event(
+                        "INVALID_LDS",
+                        "The schema payload could not be parsed as valid LDS.",
+                        payload,
+                        error=e,
+                    )
+
+            if attempt >= repair_limit:
+                print("❌ Max Gate feedback retries exhausted.")
+                print(json.dumps({"ok": False, "halt_event": halt_event}, indent=2, sort_keys=True))
+                sys.exit(1)
+
+            prompt = _model_repair_prompt(
+                full_prompt,
+                halt_event,
+                retry_number=attempt + 1,
+                retry_limit=repair_limit,
+            )
+
+        print(f"✅ Validated: {len(entities)} entities and {len(rels)} relationships found.")
+
+        if args.append:
+            draft_path = Path(target_dir) / "draft_schema.lds"
+            with open(draft_path, "a") as f:
+                f.write(f"\n\n/* Autonomous model added on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} */\n")
+                f.write(payload)
+            print(f"📝 Appended to {draft_path}")
+
+            # Auto-sync ontology
+            from entigram.broker import EntigramBroker
+            EntigramBroker(target_dir).sync_all_ontologies()
+            print("🛡️  Ontology synchronized.")
 
     elif args.command == "cloud":
         if args.cloud_command == "login":

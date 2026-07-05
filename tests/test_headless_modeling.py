@@ -61,5 +61,66 @@ class TestHeadlessModeling(unittest.TestCase):
             self.assertIn("RELATIONSHIPS:", content)
             self.assertIn("Book", content)
 
+    @patch("subprocess.run")
+    @patch("shutil.which")
+    def test_model_command_repairs_invalid_payload(self, mock_which, mock_run):
+        mock_which.return_value = "/usr/local/bin/agy"
+        mock_run.side_effect = [
+            MagicMock(stdout="This is not an LDS schema.", returncode=0),
+            MagicMock(
+                stdout="ENTITY: Library\nATTRIBUTES:\n  - .id (UUID)\n  - name (String)\n",
+                returncode=0,
+            ),
+        ]
+
+        test_args = [
+            "etg", "model", "A library with books",
+            "--dir", str(self.test_dir),
+            "--append",
+        ]
+
+        with patch.object(sys, 'argv', test_args):
+            main()
+
+        self.assertEqual(mock_run.call_count, 2)
+        second_prompt = mock_run.call_args_list[1].kwargs["input"]
+        self.assertIn("HALT_EVENT", second_prompt)
+        self.assertIn("NO_ENTITIES", second_prompt)
+
+        with open(self.draft_path, "r") as f:
+            content = f.read()
+            self.assertIn("ENTITY: Library", content)
+            self.assertNotIn("This is not an LDS schema.", content)
+
+    @patch("subprocess.run")
+    @patch("shutil.which")
+    def test_model_command_escalates_after_repair_limit(self, mock_which, mock_run):
+        mock_which.return_value = "/usr/local/bin/agy"
+        mock_run.side_effect = [
+            MagicMock(stdout="This is not an LDS schema.", returncode=0),
+            MagicMock(stdout="Still not a schema.", returncode=0),
+        ]
+
+        test_args = [
+            "etg", "model", "A library with books",
+            "--dir", str(self.test_dir),
+            "--append",
+            "--max-repair-attempts", "1",
+        ]
+
+        with patch.object(sys, 'argv', test_args):
+            with self.assertRaises(SystemExit) as ctx:
+                main()
+
+        self.assertEqual(ctx.exception.code, 1)
+        self.assertEqual(mock_run.call_count, 2)
+        second_prompt = mock_run.call_args_list[1].kwargs["input"]
+        self.assertIn("HALT_EVENT", second_prompt)
+        self.assertIn("NO_ENTITIES", second_prompt)
+
+        with open(self.draft_path, "r") as f:
+            content = f.read()
+            self.assertNotIn("Still not a schema.", content)
+
 if __name__ == "__main__":
     unittest.main()
