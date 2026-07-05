@@ -13,6 +13,13 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.11.0](https://github.com/nyabutid/entigram/compare/v1.10.1...v1.11.0) (2026-07-05)
+
+
+### Features
+
+* add etg merge ([30a31dd](https://github.com/nyabutid/entigram/commit/30a31dd14e88076bf3017a052518ccf26215357a))
+
 ## [1.10.1](https://github.com/nyabutid/entigram/compare/v1.10.0...v1.10.1) (2026-07-03)
 
 
