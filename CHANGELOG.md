@@ -13,6 +13,14 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.13.0](https://github.com/nyabutid/entigram/compare/v1.12.0...v1.13.0) (2026-07-05)
+
+
+### Features
+
+* add agent orchestration hibernation ([cc58dc4](https://github.com/nyabutid/entigram/commit/cc58dc44694bf7c872a557fe43f28cd2743b776a))
+* add agent orchestration hibernation ([5e5b353](https://github.com/nyabutid/entigram/commit/5e5b353b3dead4ae622949493a9e70df822e92e5))
+
 ## [1.12.0](https://github.com/nyabutid/entigram/compare/v1.11.0...v1.12.0) (2026-07-05)
 
 
