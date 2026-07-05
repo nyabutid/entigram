@@ -77,6 +77,39 @@ def _model_repair_prompt(base_prompt, halt_event, retry_number, retry_limit):
     )
 
 
+def _parse_score_pairs(values):
+    scores = {}
+    for value in values or []:
+        if "=" not in value:
+            raise ValueError(f"Expected TASK_TYPE=SCORE, got: {value}")
+        key, raw_score = value.split("=", 1)
+        key = key.strip()
+        if not key:
+            raise ValueError(f"Missing task type in capability score: {value}")
+        scores[key] = float(raw_score)
+    return scores
+
+
+def _split_classes(values):
+    classes = []
+    for value in values or []:
+        for item in value.split(","):
+            item = item.strip()
+            if item:
+                classes.append(item)
+    return classes
+
+
+def _parse_json_arg(value, *, default=None):
+    if value is None:
+        return default
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Expected valid JSON: {exc}") from exc
+    return parsed
+
+
 def get_default_engine():
     """Probes the system for available AI agents (Antigravity, Claude, or Codex)."""
     if shutil.which("agy"):
@@ -679,6 +712,87 @@ def main():
     broker_subparsers.add_parser("conflicts", help="List all pending conflicts")
     broker_subparsers.add_parser("resolutions", help="List all settled resolutions")
     broker_subparsers.add_parser("validate", help="Validate current Schema model")
+
+    agent_register_parser = broker_subparsers.add_parser(
+        "agent-register",
+        help="Register or update an agent capability profile",
+    )
+    agent_register_parser.add_argument("--agent", required=True, help="Stable agent ID")
+    agent_register_parser.add_argument("--class", dest="agent_class", help="Agent class, e.g. strong, continuation, read-only")
+    agent_register_parser.add_argument("--provider", help="Provider or runtime")
+    agent_register_parser.add_argument("--model", help="Underlying model")
+    agent_register_parser.add_argument("--score", type=float, default=0.5, help="Observed reliability score from 0.0 to 1.0")
+    agent_register_parser.add_argument(
+        "--capability",
+        action="append",
+        default=[],
+        help="Task-specific score in TASK_TYPE=SCORE form; may be repeated",
+    )
+    agent_register_parser.add_argument("--allow", action="append", default=[], help="Allowed task classes or risk levels")
+    agent_register_parser.add_argument("--restrict", action="append", default=[], help="Restricted task classes or risk levels")
+    agent_register_parser.add_argument("--notes", help="Operator notes")
+    agent_register_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
+
+    agent_list_parser = broker_subparsers.add_parser(
+        "agent-list",
+        help="List registered agents and capability scores",
+    )
+    agent_list_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
+
+    task_enqueue_parser = broker_subparsers.add_parser(
+        "task-enqueue",
+        help="Persist a task for capability-gated assignment",
+    )
+    task_enqueue_parser.add_argument("--id", required=True, help="Stable task ID")
+    task_enqueue_parser.add_argument("--title", required=True, help="Human-readable task title")
+    task_enqueue_parser.add_argument("--type", required=True, dest="task_type", help="Task type, e.g. tests, docs, terraform")
+    task_enqueue_parser.add_argument(
+        "--risk",
+        default="low_risk",
+        choices=["read_only", "low_risk", "medium_risk", "high_risk", "critical"],
+        help="Risk level for assignment gating",
+    )
+    task_enqueue_parser.add_argument("--required-score", type=float, help="Minimum capability score override")
+    task_enqueue_parser.add_argument("--details", help="JSON details to persist with the task")
+    task_enqueue_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
+
+    task_assign_parser = broker_subparsers.add_parser(
+        "task-assign",
+        help="Assign a task to an agent only if capability gates pass",
+    )
+    task_assign_parser.add_argument("--id", required=True, help="Task ID")
+    task_assign_parser.add_argument("--agent", required=True, help="Agent ID")
+    task_assign_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
+
+    task_list_parser = broker_subparsers.add_parser(
+        "task-list",
+        help="List queued and assigned agent tasks",
+    )
+    task_list_parser.add_argument("--status", help="Filter by task status")
+    task_list_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
+
+    hibernate_parser = broker_subparsers.add_parser(
+        "hibernate",
+        help="Persist a low-token checkpoint for external scheduler resume",
+    )
+    hibernate_parser.add_argument("--agent", required=True, help="Agent ID")
+    hibernate_parser.add_argument("--run-id", help="Current run/session ID")
+    hibernate_parser.add_argument("--remaining-tokens", type=int, help="Observed remaining token budget")
+    hibernate_parser.add_argument("--threshold", type=int, dest="token_threshold", help="Token threshold that triggered hibernation")
+    hibernate_parser.add_argument("--refresh-window-end", help="Refresh window end timestamp")
+    hibernate_parser.add_argument("--resume-after", help="Earliest timestamp an external scheduler should resume")
+    hibernate_parser.add_argument("--summary", required=True, help="Durable checkpoint summary")
+    hibernate_parser.add_argument("--next-action", required=True, help="Exact next action after resume")
+    hibernate_parser.add_argument("--pending-task", action="append", default=[], help="Pending task ID; may be repeated")
+    hibernate_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
+
+    resume_parser = broker_subparsers.add_parser(
+        "resume",
+        help="Show the latest hibernated checkpoint to resume",
+    )
+    resume_parser.add_argument("--agent", help="Filter by agent ID")
+    resume_parser.add_argument("--mark-resumed", action="store_true", help="Mark the returned checkpoint as resumed")
+    resume_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
 
     commission_parser = broker_subparsers.add_parser(
         "commission",
@@ -1665,6 +1779,125 @@ RELATIONSHIPS:
             else:
                 print(f"❌ Model invalid: {result['error']}")
                 sys.exit(1)
+        elif args.broker_command == "agent-register":
+            try:
+                ok = broker.ledger.record_agent(
+                    args.agent,
+                    agent_class=getattr(args, "agent_class", None),
+                    provider=getattr(args, "provider", None),
+                    model=getattr(args, "model", None),
+                    reliability_score=getattr(args, "score", 0.5),
+                    capability_scores=_parse_score_pairs(getattr(args, "capability", [])),
+                    allowed_task_classes=_split_classes(getattr(args, "allow", [])),
+                    restricted_task_classes=_split_classes(getattr(args, "restrict", [])),
+                    last_workspace_seen=str(Path(args.dir).expanduser().resolve()),
+                    notes=getattr(args, "notes", None),
+                )
+            except ValueError as exc:
+                print(str(exc))
+                sys.exit(1)
+            agent = broker.ledger.get_agent(args.agent)
+            if getattr(args, "json_output", False):
+                print(json.dumps({"ok": ok, "agent": agent}, indent=2, sort_keys=True))
+            elif ok:
+                print(f"✅ Agent registered: {args.agent} (score {agent['reliability_score']:.2f})")
+            else:
+                sys.exit(1)
+        elif args.broker_command == "agent-list":
+            agents = broker.ledger.get_agents()
+            if getattr(args, "json_output", False):
+                print(json.dumps(agents, indent=2, sort_keys=True))
+            elif not agents:
+                print("No agents registered.")
+            else:
+                for agent in agents:
+                    print(
+                        f"{agent['agent_id']} | score={agent['reliability_score']:.2f} "
+                        f"| class={agent.get('agent_class') or '-'} | model={agent.get('model') or '-'}"
+                    )
+        elif args.broker_command == "task-enqueue":
+            try:
+                details = _parse_json_arg(getattr(args, "details", None), default={})
+                ok = broker.ledger.enqueue_agent_task(
+                    args.id,
+                    args.title,
+                    args.task_type,
+                    risk_level=args.risk,
+                    required_score=getattr(args, "required_score", None),
+                    details=details,
+                )
+            except ValueError as exc:
+                print(str(exc))
+                sys.exit(1)
+            task = broker.ledger.get_agent_task(args.id)
+            if getattr(args, "json_output", False):
+                print(json.dumps({"ok": ok, "task": task}, indent=2, sort_keys=True))
+            elif ok:
+                print(
+                    f"✅ Task queued: {args.id} "
+                    f"({task['risk_level']}, requires {task['required_score']:.2f})"
+                )
+            else:
+                sys.exit(1)
+        elif args.broker_command == "task-assign":
+            result = broker.ledger.assign_agent_task(args.id, args.agent)
+            if getattr(args, "json_output", False):
+                print(json.dumps(result, indent=2, sort_keys=True))
+            elif result.get("ok"):
+                print(f"✅ Assigned {args.id} to {args.agent}: {result['rationale']}")
+            else:
+                if result.get("serious_conflict"):
+                    print("⚠️  Serious assignment conflict recorded for human resolution.")
+                print(f"❌ Assignment rejected: {result.get('rationale') or result.get('reason')}")
+            if not result.get("ok"):
+                sys.exit(1)
+        elif args.broker_command == "task-list":
+            tasks = broker.ledger.get_agent_tasks(status=getattr(args, "status", None))
+            if getattr(args, "json_output", False):
+                print(json.dumps(tasks, indent=2, sort_keys=True))
+            elif not tasks:
+                print("No agent tasks found.")
+            else:
+                for task in tasks:
+                    owner = task.get("assigned_agent_id") or "-"
+                    print(
+                        f"{task['task_id']} | {task['status']} | {task['risk_level']} "
+                        f"| requires={task['required_score']:.2f} | agent={owner} | {task['title']}"
+                    )
+        elif args.broker_command == "hibernate":
+            plan = broker.ledger.record_agent_hibernation(
+                args.agent,
+                run_id=getattr(args, "run_id", None),
+                token_threshold=getattr(args, "token_threshold", None),
+                remaining_tokens=getattr(args, "remaining_tokens", None),
+                refresh_window_end=getattr(args, "refresh_window_end", None),
+                resume_after=getattr(args, "resume_after", None),
+                checkpoint_summary=args.summary,
+                next_action=getattr(args, "next_action", None),
+                pending_task_ids=getattr(args, "pending_task", []),
+            )
+            if getattr(args, "json_output", False):
+                print(json.dumps({"ok": True, "hibernate": plan}, indent=2, sort_keys=True))
+            else:
+                print(f"💤 Hibernation checkpoint recorded: {plan['hibernate_id']}")
+                print(f"   Resume after: {plan.get('resume_after') or 'external scheduler decides'}")
+                print(f"   Next action: {plan.get('next_action')}")
+        elif args.broker_command == "resume":
+            plan = broker.ledger.get_resume_plan(agent_id=getattr(args, "agent", None))
+            if plan and getattr(args, "mark_resumed", False):
+                broker.ledger.mark_hibernation_resumed(plan["hibernate_id"])
+                plan["status"] = "Resumed"
+            if getattr(args, "json_output", False):
+                print(json.dumps({"ok": bool(plan), "resume": plan}, indent=2, sort_keys=True))
+            elif not plan:
+                print("No hibernated checkpoint is ready to resume.")
+            else:
+                print(f"🔁 Resume checkpoint: {plan['hibernate_id']} ({plan['agent_id']})")
+                print(f"   Summary: {plan.get('checkpoint_summary')}")
+                print(f"   Next action: {plan.get('next_action')}")
+                pending = ", ".join(plan.get("pending_task_ids") or [])
+                if pending:
+                    print(f"   Pending tasks: {pending}")
         elif args.broker_command == "impact":
             impact = broker.analyze_impact(args.file)
             print(json.dumps(impact, indent=2))

@@ -39,13 +39,56 @@ ATTRIBUTES:
 ENTITY: Entigram_Agent
 ATTRIBUTES:
   - .id (UUID)
+  - agent_id (String, UNIQUE)
   - role (String, MUST)
+  - agent_class (String) # strong, continuation, read_only, specialist
+  - provider (String)
+  - model (String)
+  - reliability_score (Float) # empirical capability score, 0.0-1.0
+  - capability_scores (JSON) # task_type -> score
+  - allowed_task_classes (JSON)
+  - restricted_task_classes (JSON)
+  - last_workspace_seen (String)
+  - failure_history (JSON)
+  - successful_handoffs (Integer)
   - constraints (Text)
   - directives (Text)
   - handoff_policy (Text)
   - default_proof_policy (Text)
   - proof_capabilities (Text) # comma-separated: test_run, command_output, human_review, artifact_review
   - package (String) [EXTERNAL: Entigram_Package.name]
+
+ENTITY: Entigram_Agent_Task
+ATTRIBUTES:
+  - .id (UUID)
+  - task_id (String, MUST, UNIQUE)
+  - title (String, MUST)
+  - task_type (String, MUST)
+  - risk_level (String) # read_only, low_risk, medium_risk, high_risk, critical
+  - required_score (Float)
+  - details (JSON)
+  - status (String) # Queued, Assigned, Completed, Blocked
+  - assigned_agent_id (String) [EXTERNAL: Entigram_Agent.agent_id]
+  - assignment_rationale (Text)
+  - created_at (DateTime)
+  - updated_at (DateTime)
+
+ENTITY: Entigram_Agent_Hibernation
+ATTRIBUTES:
+  - .id (UUID)
+  - hibernate_id (String, MUST, UNIQUE)
+  - agent_id (String, MUST) [EXTERNAL: Entigram_Agent.agent_id]
+  - run_id (String)
+  - status (String) # Active, PreparingHibernate, Hibernated, ResumeReady, Resumed, Completed, Blocked
+  - token_threshold (Integer)
+  - remaining_tokens (Integer)
+  - refresh_window_end (String)
+  - resume_after (String)
+  - checkpoint_summary (Text)
+  - next_action (Text)
+  - pending_task_ids (JSON)
+  - created_at (DateTime)
+  - resumed_at (DateTime)
 
 ENTITY: Entigram_Conflict
 ATTRIBUTES:
@@ -334,6 +377,11 @@ ATTRIBUTES:
 RELATIONSHIPS:
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Package
 - Entigram_Package (1) [MUST] --- [MAY] (MANY) Entigram_Agent
+- Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Agent
+- Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Agent_Task
+- Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Agent_Hibernation
+- Entigram_Agent (1) [MAY] --- [MAY] (MANY) Entigram_Agent_Task
+- Entigram_Agent (1) [MAY] --- [MAY] (MANY) Entigram_Agent_Hibernation
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Conflict
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Resolution
 - Entigram_Project (1) [MUST] --- [MAY] (MANY) Entigram_Alignment
@@ -415,6 +463,20 @@ EXPECTATION: Agent Delivery Proof {
   implementation_rule: Every material agent delivery should be traceable to Entigram_Expectation and Entigram_Delivery_Evidence, with Entigram_Delivery_Evaluation used when quality or risk must be judged.
   validation_check: python -m unittest tests.test_entigram_self_improvement_model
   proof: python -m unittest tests.test_entigram_self_improvement_model
+}
+
+EXPECTATION: Agent Capability Routing {
+  developer_expectation: Entigram should preserve empirical knowledge about which agents can safely handle which classes of work.
+  implementation_rule: The broker must persist agent capability profiles and reject task assignments when the agent score is below the task risk threshold, recording serious high-risk or critical assignment conflicts for human resolution.
+  validation_check: python -m unittest tests.test_agent_orchestration
+  proof: python -m unittest tests.test_agent_orchestration
+}
+
+EXPECTATION: Agent Hibernation Protocol {
+  developer_expectation: Agents nearing token or time limits should stop starting risky work and persist a durable checkpoint that an external scheduler can resume after the refresh window.
+  implementation_rule: The broker must persist hibernation checkpoints with remaining token budget, resume timing, checkpoint summary, exact next action, and pending task IDs.
+  validation_check: python -m unittest tests.test_agent_orchestration
+  proof: python -m unittest tests.test_agent_orchestration
 }
 
 EXPECTATION: Out-of-the-box Expectation Guard {
@@ -541,3 +603,4 @@ EXPECTATION: Entigram 1.6 Release Note {
 /* Updated: 2026-06-20 MCP schema scope and machine-readable gate responses modeled */
 /* Updated: 2026-06-20 MCP docs, audit bundle export, smoke demo, and UI extra boundary modeled */
 /* Updated: 2026-06-20 CLI versioning, workspace manifest clarity, signed audit bundles, and 1.6 release note modeled */
+/* Updated: 2026-07-05 Agent capability routing and token-window hibernation modeled */

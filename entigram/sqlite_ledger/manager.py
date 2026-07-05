@@ -1,5 +1,6 @@
 import json
 import sqlite3
+import uuid
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
@@ -12,6 +13,13 @@ from entigram.governance.grounding import (
 
 DEFAULT_SQLITE_TIMEOUT_SEC = 10.0
 DEFAULT_BUSY_TIMEOUT_MS = 10000
+TASK_RISK_REQUIRED_SCORE = {
+    "read_only": 0.10,
+    "low_risk": 0.35,
+    "medium_risk": 0.60,
+    "high_risk": 0.80,
+    "critical": 0.95,
+}
 
 class LedgerManager:
     def __init__(self, db_path: str):
@@ -222,6 +230,74 @@ class LedgerManager:
             self._ensure_columns(conn, "lessons", {
                 "agent_id": "TEXT",
             })
+            # Table for agent capability routing across mixed agent classes.
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS agent_registry (
+                    id INTEGER PRIMARY KEY,
+                    agent_id TEXT UNIQUE NOT NULL,
+                    agent_class TEXT,
+                    provider TEXT,
+                    model TEXT,
+                    reliability_score REAL DEFAULT 0.5,
+                    capability_scores TEXT DEFAULT '{}',
+                    allowed_task_classes TEXT DEFAULT '[]',
+                    restricted_task_classes TEXT DEFAULT '[]',
+                    last_workspace_seen TEXT,
+                    failure_history TEXT DEFAULT '[]',
+                    successful_handoffs INTEGER DEFAULT 0,
+                    notes TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            # Table for durable task assignment decisions.
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS agent_tasks (
+                    id INTEGER PRIMARY KEY,
+                    task_id TEXT UNIQUE NOT NULL,
+                    title TEXT NOT NULL,
+                    task_type TEXT NOT NULL,
+                    risk_level TEXT NOT NULL,
+                    required_score REAL NOT NULL,
+                    details TEXT DEFAULT '{}',
+                    status TEXT DEFAULT 'Queued',
+                    assigned_agent_id TEXT,
+                    assignment_rationale TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            # Table for token-window checkpointing and external scheduler resume.
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS agent_hibernations (
+                    id INTEGER PRIMARY KEY,
+                    hibernate_id TEXT UNIQUE NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    run_id TEXT,
+                    status TEXT NOT NULL,
+                    token_threshold INTEGER,
+                    remaining_tokens INTEGER,
+                    refresh_window_end TEXT,
+                    resume_after TEXT,
+                    checkpoint_summary TEXT,
+                    next_action TEXT,
+                    pending_task_ids TEXT DEFAULT '[]',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    resumed_at DATETIME
+                )
+            ''')
+            conn.execute('''
+                CREATE INDEX IF NOT EXISTS idx_agent_registry_score
+                ON agent_registry(reliability_score, updated_at)
+            ''')
+            conn.execute('''
+                CREATE INDEX IF NOT EXISTS idx_agent_tasks_status
+                ON agent_tasks(status, risk_level, required_score)
+            ''')
+            conn.execute('''
+                CREATE INDEX IF NOT EXISTS idx_agent_hibernations_resume
+                ON agent_hibernations(status, resume_after)
+            ''')
             # Table for delivery snapshots (frozen boot state at commission pass)
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS delivery_snapshots (
@@ -785,6 +861,468 @@ class LedgerManager:
             ]
         finally:
             if self.db_path != ":memory:": conn.close()
+
+    def record_agent(
+        self,
+        agent_id: str,
+        *,
+        agent_class: Optional[str] = None,
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        reliability_score: float = 0.5,
+        capability_scores: Optional[Dict[str, float]] = None,
+        allowed_task_classes: Optional[List[str]] = None,
+        restricted_task_classes: Optional[List[str]] = None,
+        last_workspace_seen: Optional[str] = None,
+        failure_history: Optional[List[Dict[str, Any]]] = None,
+        successful_handoffs: int = 0,
+        notes: Optional[str] = None,
+    ) -> bool:
+        """Registers or updates an agent's observed capability profile."""
+        conn = self._get_connection()
+        try:
+            score = max(0.0, min(1.0, float(reliability_score)))
+            with conn:
+                conn.execute(
+                    '''
+                    INSERT INTO agent_registry (
+                        agent_id, agent_class, provider, model, reliability_score,
+                        capability_scores, allowed_task_classes, restricted_task_classes,
+                        last_workspace_seen, failure_history, successful_handoffs, notes
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(agent_id) DO UPDATE SET
+                        agent_class=excluded.agent_class,
+                        provider=excluded.provider,
+                        model=excluded.model,
+                        reliability_score=excluded.reliability_score,
+                        capability_scores=excluded.capability_scores,
+                        allowed_task_classes=excluded.allowed_task_classes,
+                        restricted_task_classes=excluded.restricted_task_classes,
+                        last_workspace_seen=excluded.last_workspace_seen,
+                        failure_history=excluded.failure_history,
+                        successful_handoffs=excluded.successful_handoffs,
+                        notes=excluded.notes,
+                        updated_at=CURRENT_TIMESTAMP
+                    ''',
+                    (
+                        agent_id,
+                        agent_class,
+                        provider,
+                        model,
+                        score,
+                        json.dumps(capability_scores or {}, sort_keys=True),
+                        json.dumps(allowed_task_classes or [], sort_keys=True),
+                        json.dumps(restricted_task_classes or [], sort_keys=True),
+                        last_workspace_seen,
+                        json.dumps(failure_history or [], sort_keys=True),
+                        successful_handoffs,
+                        notes,
+                    ),
+                )
+            return True
+        except Exception as e:
+            print(f"Ledger Error (AgentRegistry): {e}")
+            return False
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def get_agent(self, agent_id: str) -> Optional[Dict[str, Any]]:
+        """Returns a registered agent profile."""
+        agents = self.get_agents(agent_id=agent_id, limit=1)
+        return agents[0] if agents else None
+
+    def get_agents(
+        self,
+        *,
+        agent_id: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Retrieves registered agent capability profiles."""
+        conn = self._get_connection()
+        try:
+            conditions, params = [], []
+            if agent_id:
+                conditions.append("agent_id = ?")
+                params.append(agent_id)
+            where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+            cursor = conn.execute(
+                "SELECT agent_id, agent_class, provider, model, reliability_score, "
+                "capability_scores, allowed_task_classes, restricted_task_classes, "
+                "last_workspace_seen, failure_history, successful_handoffs, notes, "
+                f"created_at, updated_at FROM agent_registry {where} "
+                "ORDER BY reliability_score DESC, updated_at DESC LIMIT ?",
+                params + [limit],
+            )
+            return [self._agent_row_to_dict(row) for row in cursor.fetchall()]
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def enqueue_agent_task(
+        self,
+        task_id: str,
+        title: str,
+        task_type: str,
+        *,
+        risk_level: str = "low_risk",
+        required_score: Optional[float] = None,
+        details: Optional[Dict[str, Any]] = None,
+        status: str = "Queued",
+    ) -> bool:
+        """Persists a task that can be assigned through capability gating."""
+        normalized_risk = self._normalize_risk_level(risk_level)
+        minimum = TASK_RISK_REQUIRED_SCORE[normalized_risk]
+        score = minimum if required_score is None else max(minimum, min(1.0, float(required_score)))
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute(
+                    '''
+                    INSERT INTO agent_tasks (
+                        task_id, title, task_type, risk_level, required_score,
+                        details, status
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(task_id) DO UPDATE SET
+                        title=excluded.title,
+                        task_type=excluded.task_type,
+                        risk_level=excluded.risk_level,
+                        required_score=excluded.required_score,
+                        details=excluded.details,
+                        status=excluded.status,
+                        updated_at=CURRENT_TIMESTAMP
+                    ''',
+                    (
+                        task_id,
+                        title,
+                        task_type,
+                        normalized_risk,
+                        score,
+                        json.dumps(details or {}, sort_keys=True),
+                        status,
+                    ),
+                )
+            return True
+        except Exception as e:
+            print(f"Ledger Error (AgentTask): {e}")
+            return False
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def get_agent_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Returns a queued or assigned agent task."""
+        tasks = self.get_agent_tasks(task_id=task_id, limit=1)
+        return tasks[0] if tasks else None
+
+    def get_agent_tasks(
+        self,
+        *,
+        task_id: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Retrieves agent task records."""
+        conn = self._get_connection()
+        try:
+            conditions, params = [], []
+            if task_id:
+                conditions.append("task_id = ?")
+                params.append(task_id)
+            if status:
+                conditions.append("status = ?")
+                params.append(status)
+            where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+            cursor = conn.execute(
+                "SELECT task_id, title, task_type, risk_level, required_score, "
+                "details, status, assigned_agent_id, assignment_rationale, "
+                f"created_at, updated_at FROM agent_tasks {where} "
+                "ORDER BY created_at DESC, id DESC LIMIT ?",
+                params + [limit],
+            )
+            return [self._task_row_to_dict(row) for row in cursor.fetchall()]
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def assign_agent_task(self, task_id: str, agent_id: str) -> Dict[str, Any]:
+        """Assigns a task only when the agent capability score clears the task risk gate."""
+        task = self.get_agent_task(task_id)
+        agent = self.get_agent(agent_id)
+        if not task:
+            return {"ok": False, "reason": "TASK_NOT_FOUND", "task_id": task_id}
+        if not agent:
+            return {"ok": False, "reason": "AGENT_NOT_REGISTERED", "agent_id": agent_id}
+
+        decision = self.evaluate_agent_assignment(agent, task)
+        if not decision["ok"]:
+            if decision.get("serious_conflict"):
+                self.record_conflict(
+                    f"agent-assignment:{task_id}:{agent_id}",
+                    "Entigram_Agent_Task",
+                    json.dumps({"agent": agent, "task": task, "decision": decision}, sort_keys=True),
+                    json.dumps([agent_id, "EntigramBroker"], sort_keys=True),
+                )
+            return decision
+
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute(
+                    '''
+                    UPDATE agent_tasks
+                    SET status = 'Assigned',
+                        assigned_agent_id = ?,
+                        assignment_rationale = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE task_id = ?
+                    ''',
+                    (agent_id, decision["rationale"], task_id),
+                )
+            decision.update({"task_id": task_id, "agent_id": agent_id, "status": "Assigned"})
+            return decision
+        except Exception as e:
+            return {"ok": False, "reason": "ASSIGNMENT_WRITE_FAILED", "details": str(e)}
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def evaluate_agent_assignment(self, agent: Dict[str, Any], task: Dict[str, Any]) -> Dict[str, Any]:
+        """Evaluates whether an agent may receive a task without mutating state."""
+        task_type = task["task_type"]
+        risk_level = self._normalize_risk_level(task["risk_level"])
+        restricted = set(agent.get("restricted_task_classes") or [])
+        allowed = set(agent.get("allowed_task_classes") or [])
+        capability_scores = agent.get("capability_scores") or {}
+        score = float(capability_scores.get(task_type, agent.get("reliability_score", 0.0)))
+        required = max(float(task.get("required_score", 0.0)), TASK_RISK_REQUIRED_SCORE[risk_level])
+
+        if task_type in restricted or risk_level in restricted:
+            return {
+                "ok": False,
+                "reason": "TASK_CLASS_RESTRICTED",
+                "score": score,
+                "required_score": required,
+                "serious_conflict": risk_level in {"high_risk", "critical"},
+                "rationale": f"{agent['agent_id']} is restricted from {task_type}/{risk_level}.",
+            }
+        if allowed and "*" not in allowed and task_type not in allowed and risk_level not in allowed:
+            return {
+                "ok": False,
+                "reason": "TASK_CLASS_NOT_ALLOWED",
+                "score": score,
+                "required_score": required,
+                "serious_conflict": risk_level in {"high_risk", "critical"},
+                "rationale": f"{agent['agent_id']} is not allow-listed for {task_type}/{risk_level}.",
+            }
+        if score < required:
+            return {
+                "ok": False,
+                "reason": "CAPABILITY_SCORE_TOO_LOW",
+                "score": score,
+                "required_score": required,
+                "serious_conflict": risk_level in {"high_risk", "critical"},
+                "rationale": (
+                    f"{agent['agent_id']} scored {score:.2f} for {task_type}; "
+                    f"{risk_level} requires {required:.2f}."
+                ),
+            }
+        return {
+            "ok": True,
+            "reason": "ASSIGNMENT_ALLOWED",
+            "score": score,
+            "required_score": required,
+            "serious_conflict": False,
+            "rationale": (
+                f"{agent['agent_id']} scored {score:.2f} for {task_type}; "
+                f"{risk_level} requires {required:.2f}."
+            ),
+        }
+
+    def record_agent_hibernation(
+        self,
+        agent_id: str,
+        *,
+        hibernate_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        status: str = "Hibernated",
+        token_threshold: Optional[int] = None,
+        remaining_tokens: Optional[int] = None,
+        refresh_window_end: Optional[str] = None,
+        resume_after: Optional[str] = None,
+        checkpoint_summary: Optional[str] = None,
+        next_action: Optional[str] = None,
+        pending_task_ids: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Persists a durable hibernation checkpoint for external resume scheduling."""
+        hibernate_id = hibernate_id or f"hib-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{uuid.uuid4().hex[:8]}"
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute(
+                    '''
+                    INSERT INTO agent_hibernations (
+                        hibernate_id, agent_id, run_id, status, token_threshold,
+                        remaining_tokens, refresh_window_end, resume_after,
+                        checkpoint_summary, next_action, pending_task_ids
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(hibernate_id) DO UPDATE SET
+                        agent_id=excluded.agent_id,
+                        run_id=excluded.run_id,
+                        status=excluded.status,
+                        token_threshold=excluded.token_threshold,
+                        remaining_tokens=excluded.remaining_tokens,
+                        refresh_window_end=excluded.refresh_window_end,
+                        resume_after=excluded.resume_after,
+                        checkpoint_summary=excluded.checkpoint_summary,
+                        next_action=excluded.next_action,
+                        pending_task_ids=excluded.pending_task_ids
+                    ''',
+                    (
+                        hibernate_id,
+                        agent_id,
+                        run_id,
+                        status,
+                        token_threshold,
+                        remaining_tokens,
+                        refresh_window_end,
+                        resume_after,
+                        checkpoint_summary,
+                        next_action,
+                        json.dumps(pending_task_ids or [], sort_keys=True),
+                    ),
+                )
+            plan = self.get_hibernation(hibernate_id)
+            return plan or {"hibernate_id": hibernate_id, "agent_id": agent_id, "status": status}
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def get_hibernation(self, hibernate_id: str) -> Optional[Dict[str, Any]]:
+        """Returns one hibernation checkpoint by ID."""
+        plans = self.get_hibernations(hibernate_id=hibernate_id, limit=1)
+        return plans[0] if plans else None
+
+    def get_hibernations(
+        self,
+        *,
+        hibernate_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Retrieves hibernation checkpoints."""
+        conn = self._get_connection()
+        try:
+            conditions, params = [], []
+            if hibernate_id:
+                conditions.append("hibernate_id = ?")
+                params.append(hibernate_id)
+            if agent_id:
+                conditions.append("agent_id = ?")
+                params.append(agent_id)
+            if status:
+                conditions.append("status = ?")
+                params.append(status)
+            where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+            cursor = conn.execute(
+                "SELECT hibernate_id, agent_id, run_id, status, token_threshold, "
+                "remaining_tokens, refresh_window_end, resume_after, checkpoint_summary, "
+                f"next_action, pending_task_ids, created_at, resumed_at FROM agent_hibernations {where} "
+                "ORDER BY created_at DESC, id DESC LIMIT ?",
+                params + [limit],
+            )
+            return [self._hibernation_row_to_dict(row) for row in cursor.fetchall()]
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def get_resume_plan(self, agent_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Returns the latest hibernated checkpoint ready for an external scheduler to resume."""
+        conn = self._get_connection()
+        try:
+            conditions = ["status IN ('PreparingHibernate', 'Hibernated', 'ResumeReady')"]
+            params: List[Any] = []
+            if agent_id:
+                conditions.append("agent_id = ?")
+                params.append(agent_id)
+            cursor = conn.execute(
+                "SELECT hibernate_id, agent_id, run_id, status, token_threshold, "
+                "remaining_tokens, refresh_window_end, resume_after, checkpoint_summary, "
+                "next_action, pending_task_ids, created_at, resumed_at FROM agent_hibernations "
+                f"WHERE {' AND '.join(conditions)} ORDER BY created_at DESC, id DESC LIMIT 1",
+                params,
+            )
+            row = cursor.fetchone()
+            return self._hibernation_row_to_dict(row) if row else None
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def mark_hibernation_resumed(self, hibernate_id: str) -> bool:
+        """Marks a hibernation checkpoint as resumed."""
+        conn = self._get_connection()
+        try:
+            with conn:
+                cursor = conn.execute(
+                    "UPDATE agent_hibernations SET status = 'Resumed', resumed_at = CURRENT_TIMESTAMP "
+                    "WHERE hibernate_id = ?",
+                    (hibernate_id,),
+                )
+            return cursor.rowcount > 0
+        finally:
+            if self.db_path != ":memory:": conn.close()
+
+    def _normalize_risk_level(self, risk_level: str) -> str:
+        normalized = (risk_level or "low_risk").strip().lower().replace("-", "_")
+        if normalized not in TASK_RISK_REQUIRED_SCORE:
+            raise ValueError(f"Unknown task risk level: {risk_level}")
+        return normalized
+
+    def _agent_row_to_dict(self, row) -> Dict[str, Any]:
+        return {
+            "agent_id": row[0],
+            "agent_class": row[1],
+            "provider": row[2],
+            "model": row[3],
+            "reliability_score": row[4],
+            "capability_scores": json.loads(row[5] or "{}"),
+            "allowed_task_classes": json.loads(row[6] or "[]"),
+            "restricted_task_classes": json.loads(row[7] or "[]"),
+            "last_workspace_seen": row[8],
+            "failure_history": json.loads(row[9] or "[]"),
+            "successful_handoffs": row[10],
+            "notes": row[11],
+            "created_at": row[12],
+            "updated_at": row[13],
+        }
+
+    def _task_row_to_dict(self, row) -> Dict[str, Any]:
+        return {
+            "task_id": row[0],
+            "title": row[1],
+            "task_type": row[2],
+            "risk_level": row[3],
+            "required_score": row[4],
+            "details": json.loads(row[5] or "{}"),
+            "status": row[6],
+            "assigned_agent_id": row[7],
+            "assignment_rationale": row[8],
+            "created_at": row[9],
+            "updated_at": row[10],
+        }
+
+    def _hibernation_row_to_dict(self, row) -> Dict[str, Any]:
+        return {
+            "hibernate_id": row[0],
+            "agent_id": row[1],
+            "run_id": row[2],
+            "status": row[3],
+            "token_threshold": row[4],
+            "remaining_tokens": row[5],
+            "refresh_window_end": row[6],
+            "resume_after": row[7],
+            "checkpoint_summary": row[8],
+            "next_action": row[9],
+            "pending_task_ids": json.loads(row[10] or "[]"),
+            "created_at": row[11],
+            "resumed_at": row[12],
+        }
 
     def record_delivery_snapshot(
         self,
