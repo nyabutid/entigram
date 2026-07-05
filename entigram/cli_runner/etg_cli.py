@@ -29,6 +29,24 @@ def get_package_version() -> str:
     except Exception:
         return "unknown"
 
+
+def _halt_response(warden, fallback_code, fallback_message, **context):
+    event = getattr(warden, "last_halt_event", None)
+    if event is not None:
+        return warden.halt_event_payload(ok=False)
+    return {
+        "ok": False,
+        "halt_event": {
+            "halt_code": fallback_code,
+            "message": fallback_message,
+            "expected_schema": {},
+            "actual_payload": context,
+            "suggested_fix": "Inspect the command input and retry with a schema-valid payload.",
+            "details": context,
+        },
+    }
+
+
 def get_default_engine():
     """Probes the system for available AI agents (Antigravity, Claude, or Codex)."""
     if shutil.which("agy"):
@@ -358,7 +376,8 @@ def main():
     
     warden_subparsers.add_parser("lock", help="Lock the current Schema and Ontology via cryptographic checksum")
     warden_subparsers.add_parser("unlock", help="Unlock the domain for authorized modifications")
-    warden_subparsers.add_parser("check", help="Verify the current integrity state")
+    warden_check_parser = warden_subparsers.add_parser("check", help="Verify the current integrity state")
+    warden_check_parser.add_argument("--json", action="store_true", dest="json_output", help="Print HaltEvent JSON")
 
     # build command
     build_parser = subparsers.add_parser("build", help="Build models from Schema")
@@ -604,12 +623,14 @@ def main():
     decide_parser.add_argument("--type", required=True, help="Entity Type")
     decide_parser.add_argument("--state", required=True, help="Resolved State")
     decide_parser.add_argument("--rationale", required=True, help="Rationale")
+    decide_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
 
     conflict_parser = broker_subparsers.add_parser("conflict", help="Report a contradiction")
     conflict_parser.add_argument("--id", required=True, help="Conflict ID")
     conflict_parser.add_argument("--type", required=True, help="Entity Type")
     conflict_parser.add_argument("--states", required=True, help="Proposed States (JSON)")
     conflict_parser.add_argument("--agent", required=True, help="Agent ID")
+    conflict_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
 
     check_parser = broker_subparsers.add_parser("check", help="Check for an existing decision")
     check_parser.add_argument("--id", required=True, help="Conflict ID")
@@ -925,7 +946,13 @@ def main():
         elif args.warden_command == "unlock":
             warden.unlock()
         elif args.warden_command == "check":
-            if warden.verify_integrity():
+            json_output = getattr(args, "json_output", False)
+            ok = warden.verify_integrity(emit_human=not json_output)
+            if json_output:
+                print(json.dumps(warden.halt_event_payload(ok=ok), indent=2, sort_keys=True))
+                if not ok:
+                    sys.exit(1)
+            elif ok:
                 print("🛡️  [WARDEN] Schema contracts are intact and verified.")
             else:
                 sys.exit(1)
@@ -1450,21 +1477,82 @@ RELATIONSHIPS:
         broker = EntigramBroker(args.dir)
         
         if args.broker_command == "decide":
-            if broker.propose_resolution(args.id, args.type, args.state, args.rationale):
+            if getattr(args, "json_output", False):
+                from contextlib import redirect_stdout
+                from io import StringIO
+                with redirect_stdout(StringIO()):
+                    success = broker.propose_resolution(args.id, args.type, args.state, args.rationale)
+                if success:
+                    print(json.dumps({"ok": True, "status": "recorded", "conflict_id": args.id}, indent=2))
+                else:
+                    print(json.dumps(
+                        _halt_response(
+                            broker.warden,
+                            "DECISION_REJECTED",
+                            "Broker rejected the proposed decision.",
+                            conflict_id=args.id,
+                            entity_type=args.type,
+                        ),
+                        indent=2,
+                        sort_keys=True,
+                    ))
+                    sys.exit(1)
+            elif broker.propose_resolution(args.id, args.type, args.state, args.rationale):
                 print(f"✅ Decision '{args.id}' recorded.")
             else:
                 sys.exit(1)
         elif args.broker_command == "conflict":
-            states = json.loads(args.states)
-            result = broker.report_conflict(args.id, args.type, states, args.agent)
+            try:
+                states = json.loads(args.states)
+            except json.JSONDecodeError as exc:
+                if getattr(args, "json_output", False):
+                    print(json.dumps({
+                        "ok": False,
+                        "halt_event": {
+                            "halt_code": "INVALID_JSON",
+                            "message": "Proposed states must be valid JSON.",
+                            "expected_schema": {"states": "JSON object"},
+                            "actual_payload": {"states": args.states},
+                            "suggested_fix": "Pass --states as a JSON object keyed by agent id.",
+                            "details": {"error": str(exc)},
+                        },
+                    }, indent=2, sort_keys=True))
+                else:
+                    print(f"❌ Invalid --states JSON: {exc}")
+                sys.exit(1)
+            if getattr(args, "json_output", False):
+                from contextlib import redirect_stdout
+                from io import StringIO
+                with redirect_stdout(StringIO()):
+                    result = broker.report_conflict(args.id, args.type, states, args.agent)
+            else:
+                result = broker.report_conflict(args.id, args.type, states, args.agent)
             if result:
                 # The broker might have auto-resolved it
                 decision = broker.check_decision(args.id)
-                if decision and "Auto-resolved" in decision.get('rationale', ''):
+                if getattr(args, "json_output", False):
+                    print(json.dumps({
+                        "ok": True,
+                        "status": "auto_resolved" if decision and "Auto-resolved" in decision.get('rationale', '') else "logged",
+                        "conflict_id": args.id,
+                    }, indent=2, sort_keys=True))
+                elif decision and "Auto-resolved" in decision.get('rationale', ''):
                     print(f"✅ Conflict '{args.id}' was auto-resolved by Policy.")
                 else:
                     print(f"✅ Conflict '{args.id}' reported and logged for review.")
             else:
+                if getattr(args, "json_output", False):
+                    print(json.dumps(
+                        _halt_response(
+                            broker.warden,
+                            "CONFLICT_REJECTED",
+                            "Broker rejected the reported conflict.",
+                            conflict_id=args.id,
+                            entity_type=args.type,
+                        ),
+                        indent=2,
+                        sort_keys=True,
+                    ))
                 sys.exit(1)
         elif args.broker_command == "check":
             decision = broker.check_decision(args.id)
