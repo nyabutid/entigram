@@ -27,13 +27,23 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
             "Entigram_Delivery_Snapshot",
             "Entigram_Artifact",
             "Entigram_Delivery_Drift",
+            "Entigram_Agent_Task",
+            "Entigram_Agent_Hibernation",
         }
         self.assertTrue(expected_entities.issubset(entities.keys()))
 
         agent_attrs = {attr["name"] for attr in entities["Entigram_Agent"].attributes}
         self.assertTrue({
-            "handoff_policy", "default_proof_policy", "proof_capabilities"
+            "handoff_policy", "default_proof_policy", "proof_capabilities",
+            "agent_id", "reliability_score", "capability_scores",
+            "allowed_task_classes", "restricted_task_classes",
         }.issubset(agent_attrs))
+
+        task_attrs = {attr["name"] for attr in entities["Entigram_Agent_Task"].attributes}
+        self.assertTrue({"task_id", "risk_level", "required_score", "assigned_agent_id"}.issubset(task_attrs))
+
+        hibernation_attrs = {attr["name"] for attr in entities["Entigram_Agent_Hibernation"].attributes}
+        self.assertTrue({"hibernate_id", "remaining_tokens", "resume_after", "next_action"}.issubset(hibernation_attrs))
 
         proposal_attrs = {attr["name"] for attr in entities["Entigram_Agent_Proposal"].attributes}
         self.assertTrue({"expected_benefit", "rollback_plan"}.issubset(proposal_attrs))
@@ -57,6 +67,10 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
         self.assertIn(("Entigram_Project", "Entigram_Artifact"), relationship_pairs)
         self.assertIn(("Entigram_Delivery_Snapshot", "Entigram_Artifact"), relationship_pairs)
         self.assertIn(("Entigram_Delivery_Snapshot", "Entigram_Delivery_Drift"), relationship_pairs)
+        self.assertIn(("Entigram_Project", "Entigram_Agent_Task"), relationship_pairs)
+        self.assertIn(("Entigram_Project", "Entigram_Agent_Hibernation"), relationship_pairs)
+        self.assertIn(("Entigram_Agent", "Entigram_Agent_Task"), relationship_pairs)
+        self.assertIn(("Entigram_Agent", "Entigram_Agent_Hibernation"), relationship_pairs)
 
     def test_self_improvement_model_compiles_to_sql_and_ttl(self):
         _, entities, relationships = _load_project_model()
@@ -71,7 +85,11 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
         self.assertIn("mk:Entigram_Delivery_Snapshot a owl:Class", ttl)
         self.assertIn("mk:Entigram_Artifact a owl:Class", ttl)
         self.assertIn("mk:Entigram_Delivery_Drift a owl:Class", ttl)
+        self.assertIn("mk:Entigram_Agent_Task a owl:Class", ttl)
+        self.assertIn("mk:Entigram_Agent_Hibernation a owl:Class", ttl)
         self.assertIn("mk:Entigram_Agent_proof_capabilities a owl:DatatypeProperty", ttl)
+        self.assertIn("mk:Entigram_Agent_reliability_score a owl:DatatypeProperty", ttl)
+        self.assertIn("mk:Entigram_Agent_Hibernation_next_action a owl:DatatypeProperty", ttl)
         self.assertIn("mk:Entigram_Artifact_sha256 a owl:DatatypeProperty", ttl)
         self.assertIn("mk:Entigram_Delivery_Drift_drift_status a owl:DatatypeProperty", ttl)
         self.assertIn("mk:Entigram_Expectation_developer_expectation a owl:DatatypeProperty", ttl)
@@ -90,12 +108,15 @@ class TestEntigramSelfImprovementModel(unittest.TestCase):
                 "python -m unittest tests.test_delivery_ledger passed",
                 "python -m unittest tests.test_cli_integration passed",
                 "python -m unittest tests.test_hydration passed",
+                "python -m unittest tests.test_agent_orchestration passed",
             ]
         )
 
         names = {item["name"] for item in checklist["items"]}
         self.assertIn("Entigram Self-Improvement Loop", names)
         self.assertIn("Agent Delivery Proof", names)
+        self.assertIn("Agent Capability Routing", names)
+        self.assertIn("Agent Hibernation Protocol", names)
         self.assertIn("Out-of-the-box Expectation Guard", names)
         self.assertIn("Release Orchestration", names)
         self.assertIn("Agent Policy Discoverability", names)

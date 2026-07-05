@@ -25,6 +25,12 @@ mk:Entigram_Package a owl:Class ;
 mk:Entigram_Agent a owl:Class ;
     rdfs:label "Entigram_Agent" .
 
+mk:Entigram_Agent_Task a owl:Class ;
+    rdfs:label "Entigram_Agent_Task" .
+
+mk:Entigram_Agent_Hibernation a owl:Class ;
+    rdfs:label "Entigram_Agent_Hibernation" .
+
 mk:Entigram_Conflict a owl:Class ;
     rdfs:label "Entigram_Conflict" .
 
@@ -195,10 +201,65 @@ mk:Entigram_Agent_id a owl:DatatypeProperty ;
     rdfs:range xsd:string ;
     rdfs:label "id" .
 
+mk:Entigram_Agent_agent_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "agent_id" .
+
 mk:Entigram_Agent_role a owl:DatatypeProperty ;
     rdfs:domain mk:Entigram_Agent ;
     rdfs:range xsd:string ;
     rdfs:label "role" .
+
+mk:Entigram_Agent_agent_class a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "agent_class" .
+
+mk:Entigram_Agent_provider a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "provider" .
+
+mk:Entigram_Agent_model a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "model" .
+
+mk:Entigram_Agent_reliability_score a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "reliability_score" .
+
+mk:Entigram_Agent_capability_scores a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "capability_scores" .
+
+mk:Entigram_Agent_allowed_task_classes a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "allowed_task_classes" .
+
+mk:Entigram_Agent_restricted_task_classes a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "restricted_task_classes" .
+
+mk:Entigram_Agent_last_workspace_seen a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "last_workspace_seen" .
+
+mk:Entigram_Agent_failure_history a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "failure_history" .
+
+mk:Entigram_Agent_successful_handoffs a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range xsd:integer ;
+    rdfs:label "successful_handoffs" .
 
 mk:Entigram_Agent_constraints a owl:DatatypeProperty ;
     rdfs:domain mk:Entigram_Agent ;
@@ -229,6 +290,136 @@ mk:Entigram_Agent_package a owl:DatatypeProperty ;
     rdfs:domain mk:Entigram_Agent ;
     rdfs:range xsd:string ;
     rdfs:label "package" .
+
+mk:Entigram_Agent_Task_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Task ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Agent_Task_task_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Task ;
+    rdfs:range xsd:string ;
+    rdfs:label "task_id" .
+
+mk:Entigram_Agent_Task_title a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Task ;
+    rdfs:range xsd:string ;
+    rdfs:label "title" .
+
+mk:Entigram_Agent_Task_task_type a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Task ;
+    rdfs:range xsd:string ;
+    rdfs:label "task_type" .
+
+mk:Entigram_Agent_Task_risk_level a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Task ;
+    rdfs:range xsd:string ;
+    rdfs:label "risk_level" .
+
+mk:Entigram_Agent_Task_required_score a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Task ;
+    rdfs:range xsd:string ;
+    rdfs:label "required_score" .
+
+mk:Entigram_Agent_Task_details a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Task ;
+    rdfs:range xsd:string ;
+    rdfs:label "details" .
+
+mk:Entigram_Agent_Task_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Task ;
+    rdfs:range xsd:string ;
+    rdfs:label "status" .
+
+mk:Entigram_Agent_Task_assigned_agent_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Task ;
+    rdfs:range xsd:string ;
+    rdfs:label "assigned_agent_id" .
+
+mk:Entigram_Agent_Task_assignment_rationale a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Task ;
+    rdfs:range xsd:string ;
+    rdfs:label "assignment_rationale" .
+
+mk:Entigram_Agent_Task_created_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Task ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "created_at" .
+
+mk:Entigram_Agent_Task_updated_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Task ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "updated_at" .
+
+mk:Entigram_Agent_Hibernation_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range xsd:string ;
+    rdfs:label "id" .
+
+mk:Entigram_Agent_Hibernation_hibernate_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range xsd:string ;
+    rdfs:label "hibernate_id" .
+
+mk:Entigram_Agent_Hibernation_agent_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range xsd:string ;
+    rdfs:label "agent_id" .
+
+mk:Entigram_Agent_Hibernation_run_id a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range xsd:string ;
+    rdfs:label "run_id" .
+
+mk:Entigram_Agent_Hibernation_status a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range xsd:string ;
+    rdfs:label "status" .
+
+mk:Entigram_Agent_Hibernation_token_threshold a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range xsd:integer ;
+    rdfs:label "token_threshold" .
+
+mk:Entigram_Agent_Hibernation_remaining_tokens a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range xsd:integer ;
+    rdfs:label "remaining_tokens" .
+
+mk:Entigram_Agent_Hibernation_refresh_window_end a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range xsd:string ;
+    rdfs:label "refresh_window_end" .
+
+mk:Entigram_Agent_Hibernation_resume_after a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range xsd:string ;
+    rdfs:label "resume_after" .
+
+mk:Entigram_Agent_Hibernation_checkpoint_summary a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range xsd:string ;
+    rdfs:label "checkpoint_summary" .
+
+mk:Entigram_Agent_Hibernation_next_action a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range xsd:string ;
+    rdfs:label "next_action" .
+
+mk:Entigram_Agent_Hibernation_pending_task_ids a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range xsd:string ;
+    rdfs:label "pending_task_ids" .
+
+mk:Entigram_Agent_Hibernation_created_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "created_at" .
+
+mk:Entigram_Agent_Hibernation_resumed_at a owl:DatatypeProperty ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "resumed_at" .
 
 mk:Entigram_Conflict_id a owl:DatatypeProperty ;
     rdfs:domain mk:Entigram_Conflict ;
@@ -1365,6 +1556,103 @@ mk:Entigram_Agent rdfs:subClassOf [
         a owl:Restriction ;
         owl:onProperty mk:relates_Entigram_Agent_to_Entigram_Package ;
         owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Entigram_Agent a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Agent ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Agent_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Agent ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Agent rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Agent_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Agent_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Entigram_Agent_Task a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Agent_Task ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Agent_Task_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Agent_Task ;
+    rdfs:domain mk:Entigram_Agent_Task ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Agent_Task rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Agent_Task_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Agent_Task_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Project_to_Entigram_Agent_Hibernation a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Project ;
+    rdfs:range mk:Entigram_Agent_Hibernation ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Agent_Hibernation_to_Entigram_Project a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Project_to_Entigram_Agent_Hibernation ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range mk:Entigram_Project ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Agent_Hibernation rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Agent_Hibernation_to_Entigram_Project ;
+        owl:maxCardinality 1
+    ] , [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Agent_Hibernation_to_Entigram_Project ;
+        owl:minCardinality 1
+    ] .
+
+mk:relates_Entigram_Agent_to_Entigram_Agent_Task a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range mk:Entigram_Agent_Task ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Agent_Task_to_Entigram_Agent a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Agent_to_Entigram_Agent_Task ;
+    rdfs:domain mk:Entigram_Agent_Task ;
+    rdfs:range mk:Entigram_Agent ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Agent_Task rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Agent_Task_to_Entigram_Agent ;
+        owl:maxCardinality 1
+    ] .
+
+mk:relates_Entigram_Agent_to_Entigram_Agent_Hibernation a owl:ObjectProperty ;
+    rdfs:domain mk:Entigram_Agent ;
+    rdfs:range mk:Entigram_Agent_Hibernation ;
+    rdfs:label "relates" .
+
+mk:relates_Entigram_Agent_Hibernation_to_Entigram_Agent a owl:ObjectProperty ;
+    owl:inverseOf mk:relates_Entigram_Agent_to_Entigram_Agent_Hibernation ;
+    rdfs:domain mk:Entigram_Agent_Hibernation ;
+    rdfs:range mk:Entigram_Agent ;
+    rdfs:label "inverse_relates" .
+
+mk:Entigram_Agent_Hibernation rdfs:subClassOf [
+        a owl:Restriction ;
+        owl:onProperty mk:relates_Entigram_Agent_Hibernation_to_Entigram_Agent ;
+        owl:maxCardinality 1
     ] .
 
 mk:relates_Entigram_Project_to_Entigram_Conflict a owl:ObjectProperty ;
