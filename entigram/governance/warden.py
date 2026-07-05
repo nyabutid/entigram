@@ -1,7 +1,34 @@
 import hashlib
 import os
+import json
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Optional, Any
+
+
+@dataclass
+class HaltEvent:
+    """Machine-readable schema gate halt emitted by the Warden."""
+
+    halt_code: str
+    message: str
+    expected_schema: Dict[str, Any]
+    actual_payload: Dict[str, Any]
+    suggested_fix: str
+    details: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "halt_code": self.halt_code,
+            "message": self.message,
+            "expected_schema": self.expected_schema,
+            "actual_payload": self.actual_payload,
+            "suggested_fix": self.suggested_fix,
+            "details": self.details,
+        }
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), indent=2, sort_keys=True)
 
 class Warden:
     """
@@ -11,6 +38,7 @@ class Warden:
     def __init__(self, target_dir: str = "."):
         self.target_dir = Path(target_dir).expanduser().resolve()
         self.manifest_path = self.target_dir / ".etg" / "entigram.yaml"
+        self.last_halt_event: Optional[HaltEvent] = None
 
     def calculate_checksum(self, file_path: str) -> str:
         """Calculates the SHA-256 hash of a file."""
@@ -33,12 +61,13 @@ class Warden:
             
         return fingerprint
 
-    def verify_integrity(self) -> bool:
+    def verify_integrity(self, emit_human: bool = True) -> bool:
         """
         Validates the current files against the hashes stored in the manifest.
         Triggers SCHEMA_GUARD_HALT if a mismatch is detected.
         """
         import yaml
+        self.last_halt_event = None
         if not self.manifest_path.exists():
             return True # Nothing to verify yet
 
@@ -54,10 +83,28 @@ class Warden:
         for key, expected_hash in stored_fingerprint.items():
             actual_hash = current_fingerprint.get(key)
             if actual_hash != expected_hash:
-                print(f"🚨 [SCHEMA_GUARD_HALT] Warden Integrity Violation Detected in {key}!")
-                print(f"   Expected: {expected_hash}")
-                print(f"   Actual:   {actual_hash}")
-                print(f"   The model is attempting to alter the schema contracts of the system.")
+                self.last_halt_event = HaltEvent(
+                    halt_code="SCHEMA_INTEGRITY_VIOLATION",
+                    message=f"Warden integrity violation detected in {key}.",
+                    expected_schema={
+                        "fingerprint_key": key,
+                        "expected_checksum": expected_hash,
+                    },
+                    actual_payload={
+                        "fingerprint_key": key,
+                        "actual_checksum": actual_hash,
+                    },
+                    suggested_fix=(
+                        "Restore the governed schema/ontology files, or run "
+                        "`etg warden lock` only after an authorized contract change."
+                    ),
+                    details={"target_dir": str(self.target_dir)},
+                )
+                if emit_human:
+                    print(f"🚨 [SCHEMA_GUARD_HALT] Warden Integrity Violation Detected in {key}!")
+                    print(f"   Expected: {expected_hash}")
+                    print(f"   Actual:   {actual_hash}")
+                    print(f"   The model is attempting to alter the schema contracts of the system.")
                 return False
 
         return True
@@ -103,12 +150,13 @@ class Warden:
         else:
             print(f"ℹ️  [WARDEN] Domain was not locked.")
 
-    def validate_payload(self, entity_name: str, payload: Dict[str, Any]) -> bool:
+    def validate_payload(self, entity_name: str, payload: Dict[str, Any], emit_human: bool = True) -> bool:
         """
         Deterministially validates an agent-proposed payload against the locked Schema.
         Prevents agents from inventing new attributes or drifting from strict types.
         """
         from ..schema_compiler.parser import SchemaParser
+        self.last_halt_event = None
         
         schema_path = self.target_dir / "schema.lds"
         if not schema_path.exists():
@@ -118,15 +166,57 @@ class Warden:
         entities, _ = parser.parse()
 
         if entity_name not in entities:
-            print(f"🚨 [SCHEMA_GUARD_HALT] Semantic Drift: Agent proposed unknown entity '{entity_name}'.")
+            self.last_halt_event = HaltEvent(
+                halt_code="UNKNOWN_ENTITY",
+                message=f"Agent proposed unknown entity '{entity_name}'.",
+                expected_schema={"entities": sorted(entities.keys())},
+                actual_payload={"entity": entity_name, "payload": payload},
+                suggested_fix="Use an entity declared in schema.lds before proposing state.",
+                details={"target_dir": str(self.target_dir)},
+            )
+            if emit_human:
+                print(f"🚨 [SCHEMA_GUARD_HALT] Semantic Drift: Agent proposed unknown entity '{entity_name}'.")
             return False
 
         allowed_entity = entities[entity_name]
         allowed_attributes = [attr['name'] for attr in allowed_entity.attributes]
 
+        unknown_attributes = []
         for attr_name in payload.keys():
             if attr_name not in allowed_attributes:
-                print(f"🚨 [SCHEMA_GUARD_HALT] Unauthorized Mutation: Agent attempted to invent attribute '{attr_name}' for '{entity_name}'.")
-                return False
+                unknown_attributes.append(attr_name)
+
+        if unknown_attributes:
+            self.last_halt_event = HaltEvent(
+                halt_code="UNKNOWN_ATTRIBUTE",
+                message=(
+                    f"Agent attempted to invent attribute(s) "
+                    f"{', '.join(sorted(unknown_attributes))} for '{entity_name}'."
+                ),
+                expected_schema={
+                    "entity": entity_name,
+                    "allowed_attributes": allowed_attributes,
+                },
+                actual_payload=payload,
+                suggested_fix=(
+                    "Remove the unknown attribute(s), or add them to schema.lds "
+                    "through an authorized schema change before retrying."
+                ),
+                details={
+                    "entity": entity_name,
+                    "unknown_attributes": sorted(unknown_attributes),
+                    "target_dir": str(self.target_dir),
+                },
+            )
+            if emit_human:
+                first_unknown = sorted(unknown_attributes)[0]
+                print(f"🚨 [SCHEMA_GUARD_HALT] Unauthorized Mutation: Agent attempted to invent attribute '{first_unknown}' for '{entity_name}'.")
+            return False
 
         return True
+
+    def halt_event_payload(self, ok: bool = False) -> Dict[str, Any]:
+        return {
+            "ok": ok,
+            "halt_event": self.last_halt_event.to_dict() if self.last_halt_event else None,
+        }
