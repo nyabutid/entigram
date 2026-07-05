@@ -18,7 +18,6 @@
 
 ### Features
 
-* add etg merge ([f9aa331](https://github.com/nyabutid/entigram/commit/f9aa3316622f58599a151331c11d318b94ac44b4))
 * add etg merge ([30a31dd](https://github.com/nyabutid/entigram/commit/30a31dd14e88076bf3017a052518ccf26215357a))
 
 ## [1.10.1](https://github.com/nyabutid/entigram/compare/v1.10.0...v1.10.1) (2026-07-03)
