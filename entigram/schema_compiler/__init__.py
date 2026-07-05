@@ -2,6 +2,7 @@ from .main import compile_schema_file
 from .parser import SchemaParser
 from .compiler import SchemaCompiler
 from .graph_builder import SchemaGraphBuilder
+from .merger import MergeConflict, MergeDiff, MergeResult, SchemaMerger
 from .discoverer import (
     CSVSourceAdapter,
     DiscoveryAttribute,
@@ -26,6 +27,10 @@ __all__ = [
     "SchemaParser",
     "SchemaCompiler",
     "SchemaGraphBuilder",
+    "SchemaMerger",
+    "MergeConflict",
+    "MergeDiff",
+    "MergeResult",
     "CSVSourceAdapter",
     "DiscoveryAttribute",
     "DiscoveryEntity",
