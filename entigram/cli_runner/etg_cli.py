@@ -108,6 +108,96 @@ def _format_discovery_findings(findings) -> str:
     return "\n".join(lines)
 
 
+def _resolve_merge_paths(args):
+    from entigram.sqlite_ledger.paths import resolve_ledger_path
+
+    local_root = Path(find_project_root(os.getcwd()) or os.getcwd()).resolve()
+    local_schema = local_root / "schema.lds"
+    if not local_schema.exists():
+        raise FileNotFoundError(f"Local schema.lds not found in {local_root}")
+
+    remote_input = Path(args.remote_path).expanduser().resolve()
+    remote_workspace = None
+    if remote_input.is_dir():
+        remote_workspace = remote_input
+        remote_ledger = resolve_ledger_path(str(remote_workspace), create_default=False)
+    else:
+        remote_ledger = remote_input
+        if remote_input.name in {"state.db", "entigram_state.db"} and remote_input.parent.name == ".etg":
+            remote_workspace = remote_input.parent.parent
+
+    if args.remote_schema:
+        remote_schema = Path(args.remote_schema).expanduser().resolve()
+    elif remote_workspace:
+        candidates = [remote_workspace / "schema.lds", remote_workspace / "draft_schema.lds"]
+        remote_schema = next((candidate for candidate in candidates if candidate.exists()), None)
+        if remote_schema is None:
+            raise FileNotFoundError(f"Remote schema.lds or draft_schema.lds not found in {remote_workspace}")
+    else:
+        raise ValueError("--schema is required when --from points directly to a state.db file outside a workspace")
+
+    if not remote_ledger.exists():
+        raise FileNotFoundError(f"Remote state ledger not found: {remote_ledger}")
+    if not remote_schema.exists():
+        raise FileNotFoundError(f"Remote schema not found: {remote_schema}")
+
+    return local_root, local_schema, remote_workspace, remote_schema, remote_ledger
+
+
+def _run_merge_command(args) -> int:
+    from entigram.governance.warden import Warden
+    from entigram.schema_compiler.merge_renderer import MergeRenderer
+    from entigram.schema_compiler.merger import SchemaMerger
+    from entigram.schema_compiler.parser import SchemaParser
+    from entigram.sqlite_ledger.manager import LedgerManager
+    from entigram.sqlite_ledger.paths import resolve_ledger_path
+
+    local_root, local_schema, remote_workspace, remote_schema, remote_ledger = _resolve_merge_paths(args)
+
+    if not Warden(str(local_root)).verify_integrity():
+        return 1
+    if remote_workspace and not Warden(str(remote_workspace)).verify_integrity():
+        print(f"❌ Remote workspace Warden integrity check failed: {remote_workspace}")
+        return 1
+
+    print("🔀 Merging remote schema into local workspace...")
+    print()
+    print(f"   Source: {remote_ledger}")
+    print(f"   Target: {resolve_ledger_path(str(local_root))}")
+    print()
+
+    ledger = LedgerManager(str(resolve_ledger_path(str(local_root))))
+    renderer = MergeRenderer()
+    try:
+        merger = SchemaMerger(str(local_schema), str(remote_schema), ledger)
+        diff = merger.diff()
+        renderer.render_diff(diff)
+
+        if args.dry_run:
+            return 0
+
+        result = merger.merge(strategy=args.strategy)
+        output_path = local_root / ("schema.lds" if getattr(args, "apply", False) else "draft_schema.lds")
+        output_path.write_text(result.merged_schema)
+        SchemaParser(output_path.read_text()).parse()
+        result.output_path = str(output_path)
+
+        result.ledger_stats = merger.merge_state_db(str(remote_ledger))
+        if getattr(args, "apply", False):
+            Warden(str(local_root)).lock_fingerprint()
+            result.warden_locked = True
+
+        renderer.render_result(result)
+        if not diff.has_conflicts:
+            print(
+                f"✅ Clean merge: {len(diff.added_entities)} entities added, "
+                f"{result.ledger_stats.get('semantic_alignments', 0)} alignments imported"
+            )
+        return 0
+    finally:
+        ledger.close()
+
+
 def get_hydration_vector(target_path: Path, compact: bool = False) -> str:
     """Deterministic boot sequence to align LLM state vector by flattening ledger and Schema."""
     entigram_dir = target_path / ".etg"
@@ -285,6 +375,20 @@ def main():
     discover_parser.add_argument("--out", help="Output Schema file (prints to stdout if omitted)")
     discover_parser.add_argument("--metadata", action="store_true", help="Include discovery provenance as a Schema comment")
     discover_parser.add_argument("--report-json", action="store_true", help="Print a structured discovery report instead of only LDS")
+
+    # merge command
+    merge_parser = subparsers.add_parser("merge", help="Merge a remote schema and state ledger into the local workspace")
+    merge_parser.add_argument("--from", dest="remote_path", required=True,
+                              help="Path to remote .etg/state.db or workspace root to merge from")
+    merge_parser.add_argument("--schema", dest="remote_schema",
+                              help="Path to remote schema.lds (auto-detected from workspace if --from is a directory)")
+    merge_parser.add_argument("--strategy", choices=["interactive", "union", "ours", "theirs", "auto"],
+                              default="interactive",
+                              help="Merge strategy (default: interactive)")
+    merge_parser.add_argument("--dry-run", action="store_true",
+                              help="Show diff without applying changes")
+    merge_parser.add_argument("--apply", action="store_true",
+                              help="Write merged schema to schema.lds and relock Warden fingerprint")
 
     # package command
     pkg_parser = subparsers.add_parser("package", help="Package management")
@@ -886,6 +990,13 @@ def main():
                     print(review_summary, file=sys.stderr)
         except Exception as e:
             print(str(e))
+            sys.exit(1)
+
+    elif args.command == "merge":
+        try:
+            sys.exit(_run_merge_command(args))
+        except Exception as e:
+            print(f"❌ Merge failed: {e}")
             sys.exit(1)
     
     elif args.command == "registry":
