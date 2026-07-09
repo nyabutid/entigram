@@ -13,6 +13,14 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.14.0](https://github.com/nyabutid/entigram/compare/v1.13.0...v1.14.0) (2026-07-09)
+
+
+### Features
+
+* add WebSocket panel bridge for Agent-Hosted Panels ([07b85b3](https://github.com/nyabutid/entigram/commit/07b85b341bd3e5a8210e63321bb42294f8682306))
+* add WebSocket panel bridge for Agent-Hosted Panels ([8527ee7](https://github.com/nyabutid/entigram/commit/8527ee73a48f6736ea0bad1344e91f7d3a4e7c65))
+
 ## [1.13.0](https://github.com/nyabutid/entigram/compare/v1.12.0...v1.13.0) (2026-07-05)
 
 
