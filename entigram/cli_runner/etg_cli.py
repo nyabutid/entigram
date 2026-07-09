@@ -570,6 +570,20 @@ def main():
         help="Launch the previous Federated GraphQL Hub instead of MCP",
     )
 
+    # panel-bridge command
+    panel_bridge_parser = subparsers.add_parser(
+        "panel-bridge",
+        help="Run a WebSocket bridge for Agent-Hosted Panel bot proxying",
+    )
+    panel_bridge_parser.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
+    panel_bridge_parser.add_argument("--port", type=int, default=9090, help="Bind port (default: 9090)")
+    panel_bridge_parser.add_argument(
+        "--proxy-url",
+        default="http://127.0.0.1:11435",
+        help="Cloudflare/Ollama proxy URL for LLM completions (default: http://127.0.0.1:11435)",
+    )
+    panel_bridge_parser.add_argument("--dir", default=".", help="Target directory for ledger")
+
     # cloudflare-ollama-proxy command
     cloudflare_proxy_parser = subparsers.add_parser(
         "cloudflare-ollama-proxy",
@@ -1375,6 +1389,21 @@ def main():
                 host=args.host,
                 port=args.port,
             )
+
+    elif args.command == "panel-bridge":
+        from entigram.panel_bridge import run_panel_bridge
+
+        target_dir = args.dir
+        if not target_dir or target_dir == ".":
+            root = find_project_root(os.getcwd())
+            target_dir = str(root) if root else os.getcwd()
+
+        run_panel_bridge(
+            host=args.host,
+            port=args.port,
+            proxy_url=args.proxy_url,
+            target_dir=target_dir,
+        )
 
     elif args.command in {"cloudflare-ollama-proxy", "cloudflare-claude"}:
         from entigram.cli_runner.cloudflare_ollama_proxy import main as proxy_main
