@@ -27,6 +27,7 @@ from entigram.cli_runner.cloudflare_ollama_proxy import (
     make_handler,
     non_stream_chat_response,
     non_stream_generate_response,
+    normalize_messages_for_cloudflare,
     parse_env_file,
     parse_tool_arguments,
     prompt_to_messages,
@@ -36,6 +37,7 @@ from entigram.cli_runner.cloudflare_ollama_proxy import (
     request_path,
     serve_proxy,
     sse_event_bytes,
+    stringify_message_content,
     tags_response,
 )
 
@@ -145,6 +147,93 @@ class TestCloudflareOllamaProxy(unittest.TestCase):
         self.assertLessEqual(len(compacted[1]["content"]), 180)
         self.assertIn("compacted an oversized tool result", compacted[1]["content"])
 
+    def test_cloudflare_messages_always_have_string_content(self):
+        messages = [
+            {"role": "user", "content": [{"type": "text", "text": "hydrate"}]},
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "toolu_1",
+                        "type": "function",
+                        "function": {"name": "Bash", "arguments": '{"cmd":"hydrate"}'},
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "toolu_1",
+                "content": [{"type": "text", "text": "large hydrate output"}],
+            },
+            {"role": "user", "content": {"unexpected": "structured block"}},
+        ]
+
+        normalized = normalize_messages_for_cloudflare(messages)
+
+        self.assertEqual(normalized[0]["content"], "hydrate")
+        self.assertEqual(normalized[1]["content"], "")
+        self.assertEqual(normalized[2]["content"], "large hydrate output")
+        self.assertEqual(normalized[3]["content"], '{"unexpected":"structured block"}')
+        self.assertTrue(all(isinstance(m["content"], str) for m in normalized))
+
+    def test_stringify_preserves_boundaries_between_text_blocks(self):
+        # Failure mode: adjacent text blocks fused with "" joining, corrupting
+        # word boundaries in the payload Cloudflare receives.
+        content = [
+            {"type": "text", "text": "Hello,"},
+            {"type": "text", "text": "world."},
+        ]
+        self.assertEqual(stringify_message_content(content), "Hello,\nworld.")
+
+    def test_stringify_tool_result_with_nested_block_list(self):
+        # Failure mode: tool_result content that is itself a list of blocks
+        # recursed and fused without separators.
+        content = [
+            {
+                "type": "tool_result",
+                "tool_use_id": "toolu_1",
+                "content": [
+                    {"type": "text", "text": "line1"},
+                    {"type": "text", "text": "line2"},
+                ],
+            }
+        ]
+        self.assertEqual(stringify_message_content(content), "line1\nline2")
+
+    def test_stringify_unknown_block_with_non_serializable_value_degrades(self):
+        # Failure mode: json.dumps on an unknown block containing a
+        # non-JSON-serializable value raised TypeError -> 500 at the HTTP
+        # boundary instead of a normalized payload.
+        content = [{"type": "weird", "when": object()}]
+        result = stringify_message_content(content)
+        self.assertIsInstance(result, str)
+        self.assertTrue(result)  # fell back to str(), did not raise
+
+    def test_stringify_handles_none_scalar_and_bytes_content(self):
+        # Failure mode: None content must become "" (Cloudflare rejects null
+        # content); scalars and bytes must stringify without crashing.
+        self.assertEqual(stringify_message_content(None), "")
+        self.assertEqual(stringify_message_content(0), "0")
+        self.assertEqual(stringify_message_content(True), "True")
+        self.assertIsInstance(stringify_message_content(b"raw"), str)
+
+    def test_normalize_drops_empty_blocks_and_keeps_message_shape(self):
+        # Failure mode: normalizing a message must not strip sibling keys
+        # (tool_calls, tool_call_id) and must leave non-list content intact.
+        messages = [
+            {
+                "role": "assistant",
+                "content": [{"type": "text", "text": ""}],
+                "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}}],
+            },
+            {"role": "tool", "tool_call_id": "c1", "content": "plain string"},
+        ]
+        normalized = normalize_messages_for_cloudflare(messages)
+        self.assertEqual(normalized[0]["content"], "")
+        self.assertIn("tool_calls", normalized[0])
+        self.assertEqual(normalized[1]["content"], "plain string")
+        self.assertEqual(normalized[1]["tool_call_id"], "c1")
+
     def test_prompt_compaction_can_be_disabled(self):
         config = CloudflareProxyConfig(
             account_id="account-id",
@@ -154,7 +243,7 @@ class TestCloudflareOllamaProxy(unittest.TestCase):
         )
         messages = [{"role": "tool", "content": "y" * 200}]
 
-        self.assertIs(compact_messages_for_cloudflare(messages, config), messages)
+        self.assertEqual(compact_messages_for_cloudflare(messages, config), messages)
 
     def test_request_path_strips_query_string(self):
         self.assertEqual(request_path("/v1/messages/count_tokens?beta=true"), "/v1/messages/count_tokens")

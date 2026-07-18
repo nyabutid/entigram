@@ -198,6 +198,7 @@ def compact_messages_for_cloudflare(
     messages: list[dict[str, Any]],
     config: CloudflareProxyConfig,
 ) -> list[dict[str, Any]]:
+    messages = normalize_messages_for_cloudflare(messages)
     if not config.compact_prompts or config.max_tool_result_chars == 0:
         return messages
 
@@ -216,6 +217,48 @@ def compact_messages_for_cloudflare(
         compacted_message["content"] = compact_text(content, config.max_tool_result_chars)
         compacted.append(compacted_message)
     return compacted
+
+
+def normalize_messages_for_cloudflare(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    normalized = []
+    for message in messages:
+        normalized_message = dict(message)
+        normalized_message["content"] = stringify_message_content(
+            normalized_message.get("content", "")
+        )
+        normalized.append(normalized_message)
+    return normalized
+
+
+def stringify_message_content(content: Any) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict):
+                block_type = block.get("type")
+                if block_type == "text":
+                    parts.append(str(block.get("text", "")))
+                elif block_type == "tool_result":
+                    parts.append(stringify_message_content(block.get("content", "")))
+                else:
+                    parts.append(_safe_json_dumps(block))
+            else:
+                parts.append(str(block))
+        # Adjacent text/tool blocks are separate utterances; joining with ""
+        # fuses word boundaries (e.g. "Hello," + "world." -> "Hello,world.").
+        return "\n".join(part for part in parts if part)
+    return _safe_json_dumps(content) if isinstance(content, dict) else str(content)
+
+
+def _safe_json_dumps(value: Any) -> str:
+    try:
+        return json.dumps(value, separators=(",", ":"), sort_keys=True)
+    except (TypeError, ValueError):
+        return str(value)
 
 
 def compact_text(text: str, max_chars: int) -> str:
