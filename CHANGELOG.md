@@ -13,6 +13,14 @@
 * harden SQLite ledger concurrency with WAL mode and busy timeouts
 * close warning-producing registry, broker, router, and hydration resources
 
+## [1.16.0](https://github.com/nyabutid/entigram/compare/v1.15.0...v1.16.0) (2026-07-18)
+
+
+### Features
+
+* make hydrate concise by default ([2b6fe0c](https://github.com/nyabutid/entigram/commit/2b6fe0cfda454a12b5c0100a70bf0f1d578e1a88))
+* make hydrate concise by default ([29c0ea2](https://github.com/nyabutid/entigram/commit/29c0ea2c0157cdc4353015138cec40f7b1b80578))
+
 ## [1.15.0](https://github.com/nyabutid/entigram/compare/v1.14.0...v1.15.0) (2026-07-18)
 
 
