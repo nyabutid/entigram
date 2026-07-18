@@ -43,6 +43,7 @@ Tracker = "https://github.com/nyabutid/entigram/issues"
 
 [project.scripts]
 etg = "entigram.cli_runner.etg_cli:main"
+hydrate = "entigram.cli_runner.etg_cli:main"
 
 [tool.setuptools]
 include-package-data = false
