@@ -597,6 +597,17 @@ def main():
         help="Workers AI model (default: @cf/zai-org/glm-5.2)",
     )
     cloudflare_proxy_parser.add_argument(
+        "--model-profile",
+        choices=["auto", "coding", "configured", "conversation"],
+        default=None,
+        help="Model selection profile when Cloudflare model discovery is enabled",
+    )
+    cloudflare_proxy_parser.add_argument(
+        "--no-discover-models",
+        action="store_true",
+        help="Disable Cloudflare model discovery and use the configured model",
+    )
+    cloudflare_proxy_parser.add_argument(
         "--env-file",
         default=".env",
         help="Environment file to load before startup",
@@ -631,6 +642,17 @@ def main():
         "--model",
         default=None,
         help="Workers AI model (default: @cf/zai-org/glm-5.2)",
+    )
+    cloudflare_claude_parser.add_argument(
+        "--model-profile",
+        choices=["auto", "coding", "configured", "conversation"],
+        default=None,
+        help="Model selection profile when Cloudflare model discovery is enabled",
+    )
+    cloudflare_claude_parser.add_argument(
+        "--no-discover-models",
+        action="store_true",
+        help="Disable Cloudflare model discovery and use the configured model",
     )
     cloudflare_claude_parser.add_argument(
         "--env-file",
@@ -1418,6 +1440,10 @@ def main():
         ]
         if args.model:
             proxy_args.extend(["--model", args.model])
+        if getattr(args, "model_profile", None):
+            proxy_args.extend(["--model-profile", args.model_profile])
+        if getattr(args, "no_discover_models", False):
+            proxy_args.append("--no-discover-models")
         if args.timeout_seconds is not None:
             proxy_args.extend(["--timeout-seconds", str(args.timeout_seconds)])
         if args.retry_attempts is not None:

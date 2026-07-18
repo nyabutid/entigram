@@ -19,13 +19,34 @@ import requests
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 11435
 DEFAULT_MODEL = "@cf/zai-org/glm-5.2"
-DEFAULT_MODEL_ALIAS = "cloudflare-glm-5.2"
+DEFAULT_MODEL_ALIAS = DEFAULT_MODEL
 DEFAULT_TIMEOUT_SECONDS = 300
 DEFAULT_RETRY_ATTEMPTS = 3
 DEFAULT_RETRY_SLEEP_SECONDS = 2
 DEFAULT_MAX_TOOL_RESULT_CHARS = 24000
 RETRYABLE_STATUS_CODES = {408, 500, 502, 503, 504, 520, 522, 523, 524}
 KEEPALIVE_INTERVAL_SECONDS = 15.0
+MODEL_PROFILE_AUTO = "auto"
+MODEL_PROFILE_CODING = "coding"
+MODEL_PROFILE_CONVERSATION = "conversation"
+MODEL_PROFILE_CONFIGURED = "configured"
+MODEL_PROFILES = {
+    MODEL_PROFILE_AUTO,
+    MODEL_PROFILE_CODING,
+    MODEL_PROFILE_CONVERSATION,
+    MODEL_PROFILE_CONFIGURED,
+}
+CODE_MODEL_KEYWORDS = (
+    "code",
+    "coding",
+    "coder",
+    "programming",
+    "software",
+    "developer",
+    "agentic",
+)
+CAPABILITY_KEYWORDS = ("function", "tool", "reasoning", "structured")
+CONVERSATION_MODEL_KEYWORDS = ("chat", "dialog", "dialogue", "conversation", "instruct")
 
 
 @dataclass(frozen=True)
@@ -34,6 +55,9 @@ class CloudflareProxyConfig:
     api_token: str
     model: str = DEFAULT_MODEL
     model_alias: str = DEFAULT_MODEL_ALIAS
+    legacy_model_alias: str = ""
+    model_profile: str = MODEL_PROFILE_AUTO
+    discover_models: bool = True
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS
     retry_attempts: int = DEFAULT_RETRY_ATTEMPTS
     retry_sleep_seconds: int = DEFAULT_RETRY_SLEEP_SECONDS
@@ -47,15 +71,122 @@ class CloudflareProxyConfig:
             f"{self.account_id}/ai/v1/chat/completions"
         )
 
+    @property
+    def model_search_url(self) -> str:
+        return (
+            "https://api.cloudflare.com/client/v4/accounts/"
+            f"{self.account_id}/ai/models/search"
+        )
+
     def resolve_model(self, requested_model: str | None = None) -> str:
-        if requested_model in {None, "", self.model_alias, self.model}:
+        if requested_model in {None, "", self.model_alias, self.model, self.legacy_model_alias}:
             return self.model
         return requested_model
 
     def display_model(self, requested_model: str | None = None) -> str:
-        if requested_model in {None, "", self.model, self.model_alias}:
+        if requested_model in {None, "", self.model, self.model_alias, self.legacy_model_alias}:
             return self.model_alias
         return requested_model
+
+
+@dataclass(frozen=True)
+class CloudflareModelProfile:
+    model_id: str
+    alias: str
+    capability: str
+    description: str = ""
+    task: str = ""
+    source: str = ""
+    capabilities: tuple[str, ...] = ()
+    selectors: tuple[str, ...] = ()
+
+    @property
+    def is_coding(self) -> bool:
+        return self.capability == MODEL_PROFILE_CODING
+
+
+class CloudflareModelState:
+    def __init__(self, config: CloudflareProxyConfig):
+        self.config = config
+        self._lock = threading.RLock()
+        self._profiles: list[CloudflareModelProfile] = [
+            configured_model_profile(config.model, config.legacy_model_alias)
+        ]
+        self._active_model = config.model
+        self._active_alias = config.model
+        self._discovery_error = ""
+
+    @property
+    def active_model(self) -> str:
+        with self._lock:
+            return self._active_model
+
+    @property
+    def active_alias(self) -> str:
+        with self._lock:
+            return self._active_alias
+
+    @property
+    def discovery_error(self) -> str:
+        with self._lock:
+            return self._discovery_error
+
+    def profiles(self) -> list[CloudflareModelProfile]:
+        with self._lock:
+            return list(self._profiles)
+
+    def refresh(self, client: "CloudflareWorkersAIClient") -> list[CloudflareModelProfile]:
+        if not self.config.discover_models:
+            return self.profiles()
+
+        try:
+            profiles = discover_cloudflare_model_profiles(client)
+        except CloudflareProxyError as exc:
+            with self._lock:
+                self._discovery_error = str(exc)
+            return self.profiles()
+
+        profiles = merge_model_profiles(
+            profiles,
+            configured_model_profile(self.config.model, self.config.legacy_model_alias),
+        )
+        with self._lock:
+            self._profiles = profiles
+            self._discovery_error = ""
+            if self.config.model_profile != MODEL_PROFILE_CONFIGURED:
+                selected = select_model_profile(profiles, self.config.model_profile)
+                self._active_model = selected.model_id
+                self._active_alias = selected.alias
+        return profiles
+
+    def resolve_model(self, requested_model: str | None = None) -> str:
+        with self._lock:
+            if requested_model in {None, "", self._active_alias, self._active_model}:
+                return self._active_model
+            profile = find_model_profile(self._profiles, requested_model)
+            return profile.model_id if profile else requested_model
+
+    def display_model(self, requested_model: str | None = None) -> str:
+        with self._lock:
+            if requested_model in {None, "", self._active_model, self._active_alias}:
+                return self._active_alias
+            profile = find_model_profile(self._profiles, requested_model)
+            return profile.alias if profile else requested_model
+
+    def switch(self, selector: str) -> CloudflareModelProfile:
+        selector = selector.strip()
+        if not selector:
+            raise CloudflareProxyError("Usage: /model list | /model coding | /model conversation | /model <model-id-or-alias>")
+        with self._lock:
+            if selector in {MODEL_PROFILE_CODING, MODEL_PROFILE_CONVERSATION, MODEL_PROFILE_AUTO}:
+                profile = select_model_profile(self._profiles, selector)
+            else:
+                profile = find_model_profile(self._profiles, selector)
+                if profile is None:
+                    raise CloudflareProxyError(f"Unknown Cloudflare model: {selector}")
+            self._active_model = profile.model_id
+            self._active_alias = profile.alias
+            return profile
 
 
 class CloudflareProxyError(RuntimeError):
@@ -70,7 +201,7 @@ def cloudflare_setup_instructions() -> str:
         "       CLOUDFLARE_ACCOUNT_ID=<your-account-id>\n"
         "       CLOUDFLARE_API_TOKEN=<workers-ai-api-token>\n"
         f"       CLOUDFLARE_AI_MODEL={DEFAULT_MODEL}\n"
-        f"       CLOUDFLARE_OLLAMA_MODEL_ALIAS={DEFAULT_MODEL_ALIAS}\n"
+        "       # Optional: CLOUDFLARE_MODEL_PROFILE=auto|coding|conversation|configured\n"
         "  3. Run: etg cloudflare-ollama-proxy --smoke-test\n"
         "  4. Run: etg cloudflare-claude\n"
         "Cloudflare values are available in the Cloudflare dashboard under your account overview "
@@ -125,9 +256,19 @@ def config_from_environment(model: str | None = None) -> CloudflareProxyConfig:
         or DEFAULT_MODEL
     )
     model_alias = (
-        os.environ.get("CLOUDFLARE_OLLAMA_MODEL_ALIAS")
-        or DEFAULT_MODEL_ALIAS
+        selected_model
     )
+    legacy_model_alias = (os.environ.get("CLOUDFLARE_OLLAMA_MODEL_ALIAS") or "").strip()
+    model_profile = (
+        os.environ.get("CLOUDFLARE_MODEL_PROFILE")
+        or os.environ.get("CLOUDFLARE_AI_MODEL_PROFILE")
+        or MODEL_PROFILE_AUTO
+    ).strip().lower()
+    if model_profile not in MODEL_PROFILES:
+        raise CloudflareProxyError(
+            "CLOUDFLARE_MODEL_PROFILE must be one of: "
+            + ", ".join(sorted(MODEL_PROFILES))
+        )
 
     missing = []
     if not account_id:
@@ -147,6 +288,9 @@ def config_from_environment(model: str | None = None) -> CloudflareProxyConfig:
         api_token=api_token,
         model=selected_model,
         model_alias=model_alias,
+        legacy_model_alias=legacy_model_alias,
+        model_profile=model_profile,
+        discover_models=env_bool("CLOUDFLARE_DISCOVER_MODELS", True),
         timeout_seconds=env_int("CLOUDFLARE_PROXY_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS, minimum=1),
         retry_attempts=env_int("CLOUDFLARE_PROXY_RETRY_ATTEMPTS", DEFAULT_RETRY_ATTEMPTS, minimum=1),
         retry_sleep_seconds=env_int("CLOUDFLARE_PROXY_RETRY_SLEEP_SECONDS", DEFAULT_RETRY_SLEEP_SECONDS, minimum=0),
@@ -261,6 +405,242 @@ def _safe_json_dumps(value: Any) -> str:
         return str(value)
 
 
+def configured_model_profile(model_id: str, legacy_alias: str = "") -> CloudflareModelProfile:
+    return CloudflareModelProfile(
+        model_id=model_id,
+        alias=model_id,
+        capability=classify_model_capability(
+            model_id,
+            description="Configured Cloudflare model",
+            task="text-generation",
+        ),
+        description="Configured Cloudflare model",
+        task="text-generation",
+        selectors=(legacy_alias,) if legacy_alias and legacy_alias != model_id else (),
+    )
+
+
+def discover_cloudflare_model_profiles(
+    client: "CloudflareWorkersAIClient",
+) -> list[CloudflareModelProfile]:
+    profiles = [
+        profile
+        for profile in (
+            model_profile_from_cloudflare_item(item)
+            for item in client.search_models()
+        )
+        if profile is not None
+    ]
+    return profiles or [configured_model_profile(client.config.model, client.config.legacy_model_alias)]
+
+
+def model_profile_from_cloudflare_item(item: Any) -> CloudflareModelProfile | None:
+    if not isinstance(item, dict):
+        return None
+    model_id = first_string_value(item, "name", "id", "model", "model_id")
+    if not model_id:
+        return None
+    description = first_string_value(item, "description", "summary", "short_description")
+    task = first_string_value(item, "task", "task_name", "type")
+    source = first_string_value(item, "source", "provider", "author")
+    capabilities = tuple(flatten_string_values(item.get("capabilities") or item.get("tags") or item.get("features")))
+    return CloudflareModelProfile(
+        model_id=model_id,
+        alias=model_alias_for(model_id),
+        capability=classify_model_capability(
+            model_id,
+            description=description,
+            task=task,
+            capabilities=capabilities,
+        ),
+        description=description,
+        task=task,
+        source=source,
+        capabilities=capabilities,
+    )
+
+
+def first_string_value(item: dict[str, Any], *keys: str) -> str:
+    for key in keys:
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, dict):
+            nested = first_string_value(value, "name", "id", "slug")
+            if nested:
+                return nested
+    return ""
+
+
+def flatten_string_values(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        flattened = []
+        for item in value:
+            flattened.extend(flatten_string_values(item))
+        return flattened
+    if isinstance(value, dict):
+        flattened = []
+        for key in ("name", "id", "label", "slug"):
+            if isinstance(value.get(key), str):
+                flattened.append(value[key])
+        return flattened
+    return []
+
+
+def model_alias_for(model_id: str) -> str:
+    return model_id
+
+
+def classify_model_capability(
+    model_id: str,
+    *,
+    description: str = "",
+    task: str = "",
+    capabilities: tuple[str, ...] = (),
+) -> str:
+    haystack = " ".join([model_id, description, task, " ".join(capabilities)]).lower()
+    code_score = sum(1 for keyword in CODE_MODEL_KEYWORDS if keyword in haystack)
+    capability_score = sum(1 for keyword in CAPABILITY_KEYWORDS if keyword in haystack)
+    conversation_score = sum(1 for keyword in CONVERSATION_MODEL_KEYWORDS if keyword in haystack)
+    if code_score or capability_score >= 2:
+        return MODEL_PROFILE_CODING
+    if conversation_score:
+        return MODEL_PROFILE_CONVERSATION
+    return MODEL_PROFILE_CONVERSATION
+
+
+def merge_model_profiles(
+    discovered: list[CloudflareModelProfile],
+    configured: CloudflareModelProfile,
+) -> list[CloudflareModelProfile]:
+    merged: dict[str, CloudflareModelProfile] = {}
+    for profile in [*discovered, configured]:
+        existing = merged.get(profile.model_id)
+        if existing is None:
+            merged[profile.model_id] = profile
+            continue
+        selectors = tuple(dict.fromkeys([*existing.selectors, *profile.selectors]))
+        merged[profile.model_id] = CloudflareModelProfile(
+            model_id=existing.model_id,
+            alias=existing.alias,
+            capability=existing.capability,
+            description=existing.description or profile.description,
+            task=existing.task or profile.task,
+            source=existing.source or profile.source,
+            capabilities=existing.capabilities or profile.capabilities,
+            selectors=selectors,
+        )
+    return list(merged.values())
+
+
+def find_model_profile(
+    profiles: list[CloudflareModelProfile],
+    selector: str | None,
+) -> CloudflareModelProfile | None:
+    if not selector:
+        return None
+    normalized = selector.strip()
+    normalized_latest = normalized.removesuffix(":latest")
+    for profile in profiles:
+        selectors = {profile.model_id, profile.alias, *profile.selectors}
+        if normalized in selectors:
+            return profile
+        if normalized_latest in selectors:
+            return profile
+    return None
+
+
+def select_model_profile(
+    profiles: list[CloudflareModelProfile],
+    profile_name: str,
+) -> CloudflareModelProfile:
+    if not profiles:
+        raise CloudflareProxyError("No Cloudflare models are available")
+    if profile_name in {MODEL_PROFILE_AUTO, MODEL_PROFILE_CODING}:
+        coding_profiles = [profile for profile in profiles if profile.is_coding]
+        if coding_profiles:
+            return sorted(coding_profiles, key=model_selection_score, reverse=True)[0]
+        if profile_name == MODEL_PROFILE_CODING:
+            raise CloudflareProxyError("No coding-capable Cloudflare model was discovered")
+    if profile_name == MODEL_PROFILE_CONVERSATION:
+        conversation_profiles = [
+            profile for profile in profiles if profile.capability == MODEL_PROFILE_CONVERSATION
+        ]
+        if conversation_profiles:
+            return sorted(conversation_profiles, key=model_selection_score, reverse=True)[0]
+    return sorted(profiles, key=model_selection_score, reverse=True)[0]
+
+
+def model_selection_score(profile: CloudflareModelProfile) -> int:
+    haystack = f"{profile.model_id} {profile.description} {' '.join(profile.capabilities)}".lower()
+    score = 0
+    for weight, keyword in (
+        (100, "code"),
+        (80, "coding"),
+        (70, "agentic"),
+        (60, "function"),
+        (50, "tool"),
+        (40, "reasoning"),
+        (30, "kimi"),
+        (20, "glm"),
+    ):
+        if keyword in haystack:
+            score += weight
+    return score
+
+
+def models_response_payload(state: CloudflareModelState) -> dict[str, Any]:
+    return {
+        "active_model": state.active_model,
+        "active_alias": state.active_alias,
+        "discovery_error": state.discovery_error,
+        "models": [
+            {
+                "id": profile.model_id,
+                "alias": profile.alias,
+                "capability": profile.capability,
+                "task": profile.task,
+                "source": profile.source,
+                "description": profile.description,
+                "capabilities": list(profile.capabilities),
+                "legacy_selectors": list(profile.selectors),
+            }
+            for profile in state.profiles()
+        ],
+    }
+
+
+def model_control_response(command: str, state: CloudflareModelState) -> str:
+    parts = command.strip().split(maxsplit=1)
+    selector = parts[1].strip() if len(parts) > 1 else ""
+    if selector in {"", "list", "ls"}:
+        lines = [
+            f"Active model: {state.active_alias} -> {state.active_model}",
+            "Available Cloudflare models:",
+        ]
+        for profile in state.profiles():
+            active_marker = "*" if profile.model_id == state.active_model else "-"
+            lines.append(f"{active_marker} {profile.alias} -> {profile.model_id} [{profile.capability}]")
+        if state.discovery_error:
+            lines.append(f"Discovery warning: {state.discovery_error}")
+        lines.append("Switch with `/model coding`, `/model conversation`, or `/model <alias-or-id>`.")
+        return "\n".join(lines)
+    profile = state.switch(selector)
+    return f"Switched Cloudflare model to {profile.alias} -> {profile.model_id} [{profile.capability}]"
+
+
+def latest_user_text(messages: list[dict[str, Any]]) -> str:
+    for message in reversed(messages):
+        if message.get("role") != "user":
+            continue
+        content = stringify_message_content(message.get("content", ""))
+        if content.strip():
+            return content.strip()
+    return ""
+
+
 def compact_text(text: str, max_chars: int) -> str:
     if max_chars <= 0 or len(text) <= max_chars:
         return text
@@ -280,6 +660,31 @@ def compact_text(text: str, max_chars: int) -> str:
 class CloudflareWorkersAIClient:
     def __init__(self, config: CloudflareProxyConfig):
         self.config = config
+
+    def search_models(self) -> list[dict[str, Any]]:
+        try:
+            response = requests.get(
+                self.config.model_search_url,
+                headers=self._headers(),
+                params={"task": "Text Generation", "hide_experimental": "true"},
+                timeout=self.config.timeout_seconds,
+            )
+        except requests.RequestException as exc:
+            raise CloudflareProxyError(f"Cloudflare model discovery failed: {exc}") from exc
+        if not response.ok:
+            body = response_body_preview(response)
+            raise CloudflareProxyError(
+                f"Cloudflare model discovery failed: {response.status_code} {body}"
+            )
+        data = response.json()
+        result = data.get("result") if isinstance(data, dict) else None
+        if isinstance(result, list):
+            return result
+        if isinstance(result, dict) and isinstance(result.get("data"), list):
+            return result["data"]
+        if isinstance(data, dict) and isinstance(data.get("data"), list):
+            return data["data"]
+        return []
 
     def raw_chat(self, messages: list[dict[str, Any]], model: str | None = None, tools: list[dict[str, Any]] = None) -> dict[str, Any]:
         payload = {
@@ -584,7 +989,7 @@ def created_at() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def tags_response(model: str) -> dict[str, Any]:
+def tags_response(model: str | list[CloudflareModelProfile]) -> dict[str, Any]:
     now = created_at()
     base = {
         "modified_at": now,
@@ -599,6 +1004,17 @@ def tags_response(model: str) -> dict[str, Any]:
             "quantization_level": "hosted",
         },
     }
+    if isinstance(model, list):
+        entries = []
+        for profile in model:
+            details = dict(base["details"])
+            details["family"] = profile.capability
+            details["families"] = ["cloudflare", profile.capability]
+            entry_base = dict(base)
+            entry_base["details"] = details
+            entries.append({"name": profile.alias, "model": profile.alias, **entry_base})
+            entries.append({"name": f"{profile.alias}:latest", "model": f"{profile.alias}:latest", **entry_base})
+        return {"models": entries}
     return {
         "models": [
             {"name": model, "model": model, **base},
@@ -625,13 +1041,16 @@ def ps_response() -> dict[str, Any]:
     return {"models": []}
 
 
-def anthropic_models_response(config: CloudflareProxyConfig) -> dict[str, Any]:
-    model = anthropic_model_response(config, config.model_alias)
+def anthropic_models_response(config: CloudflareProxyConfig, state: CloudflareModelState | None = None) -> dict[str, Any]:
+    profiles = state.profiles() if state is not None else [configured_model_profile(config.model, config.legacy_model_alias)]
+    data = [anthropic_model_response(config, profile.alias) for profile in profiles]
+    first_id = data[0]["id"] if data else config.model_alias
+    last_id = data[-1]["id"] if data else config.model_alias
     return {
-        "data": [model],
-        "first_id": model["id"],
+        "data": data,
+        "first_id": first_id,
         "has_more": False,
-        "last_id": model["id"],
+        "last_id": last_id,
     }
 
 
@@ -833,7 +1252,10 @@ def _stream_with_keepalive(worker_func, generator_func):
 def make_handler(
     config: CloudflareProxyConfig,
     client: CloudflareWorkersAIClient,
+    model_state: CloudflareModelState | None = None,
 ) -> type[BaseHTTPRequestHandler]:
+    state = model_state or CloudflareModelState(config)
+
     class CloudflareOllamaProxyHandler(BaseHTTPRequestHandler):
         server_version = "EntigramCloudflareOllamaProxy/0.1"
 
@@ -856,13 +1278,16 @@ def make_handler(
                 write_json(self, 200, {"version": "entigram-cloudflare-ollama-proxy"})
                 return
             if path == "/api/tags":
-                write_json(self, 200, tags_response(config.model_alias))
+                write_json(self, 200, tags_response(state.profiles()))
+                return
+            if path == "/api/models":
+                write_json(self, 200, models_response_payload(state))
                 return
             if path == "/api/ps":
                 write_json(self, 200, ps_response())
                 return
             if path == "/v1/models":
-                write_json(self, 200, anthropic_models_response(config))
+                write_json(self, 200, anthropic_models_response(config, state))
                 return
             if path.startswith("/v1/models/"):
                 model = unquote(path.removeprefix("/v1/models/"))
@@ -879,8 +1304,11 @@ def make_handler(
                 elif path == "/api/generate":
                     self._handle_generate(payload)
                 elif path == "/api/show":
-                    model = config.display_model(payload.get("model"))
+                    model = state.display_model(payload.get("model"))
                     write_json(self, 200, show_response(model))
+                elif path == "/api/model":
+                    command = str(payload.get("model") or payload.get("selector") or "")
+                    write_json(self, 200, {"message": model_control_response(f"/model {command}".strip(), state)})
                 elif path == "/v1/messages/count_tokens":
                     write_json(self, 200, anthropic_count_tokens_response(payload))
                 elif path == "/v1/messages":
@@ -905,11 +1333,17 @@ def make_handler(
 
         def _handle_chat(self, payload: dict[str, Any]) -> None:
             requested_model = payload.get("model")
-            model = config.resolve_model(requested_model)
-            display_model = config.display_model(requested_model)
+            model = state.resolve_model(requested_model)
+            display_model = state.display_model(requested_model)
             messages = payload.get("messages") or []
             if not isinstance(messages, list):
                 raise CloudflareProxyError("Ollama /api/chat payload must include a messages list")
+
+            command = latest_user_text(messages)
+            if command.startswith("/model"):
+                content = model_control_response(command, state)
+                write_json(self, 200, non_stream_chat_response(state.active_alias, content))
+                return
             
             if payload.get("stream", True):
                 def worker_func(q):
@@ -961,11 +1395,16 @@ def make_handler(
 
         def _handle_generate(self, payload: dict[str, Any]) -> None:
             requested_model = payload.get("model")
-            model = config.resolve_model(requested_model)
-            display_model = config.display_model(requested_model)
+            model = state.resolve_model(requested_model)
+            display_model = state.display_model(requested_model)
             prompt = payload.get("prompt") or ""
             if not isinstance(prompt, str):
                 raise CloudflareProxyError("Ollama /api/generate payload must include a string prompt")
+
+            if prompt.strip().startswith("/model"):
+                content = model_control_response(prompt.strip(), state)
+                write_json(self, 200, non_stream_generate_response(state.active_alias, content))
+                return
             
             messages = prompt_to_messages(prompt, payload.get("system"))
             if payload.get("stream", True):
@@ -1017,8 +1456,8 @@ def make_handler(
                 write_json(self, 200, non_stream_generate_response(display_model, content))
 
         def _handle_anthropic_messages(self, payload: dict[str, Any]) -> None:
-            model = config.resolve_model(payload.get("model"))
-            display_model = config.display_model(model)
+            model = state.resolve_model(payload.get("model"))
+            display_model = state.display_model(model)
             
             system = payload.get("system", "")
             if isinstance(system, list):
@@ -1073,6 +1512,21 @@ def make_handler(
                             messages.append({"role": "user", "content": "".join(text_parts)})
                 else:
                     messages.append({"role": role, "content": content})
+
+            command = latest_user_text(messages)
+            if command.startswith("/model"):
+                content = model_control_response(command, state)
+                write_json(self, 200, {
+                    "id": "msg_1",
+                    "type": "message",
+                    "role": "assistant",
+                    "model": state.active_alias,
+                    "content": [{"type": "text", "text": content}],
+                    "stop_reason": "end_turn",
+                    "stop_sequence": None,
+                    "usage": {"input_tokens": 0, "output_tokens": 0}
+                })
+                return
             
             cf_tools = []
             for t in payload.get("tools", []):
@@ -1248,8 +1702,13 @@ def smoke_test(config: CloudflareProxyConfig) -> str:
     )
 
 
-def create_proxy_server(host: str, port: int, config: CloudflareProxyConfig) -> ThreadingHTTPServer:
-    handler = make_handler(config, CloudflareWorkersAIClient(config))
+def create_proxy_server(
+    host: str,
+    port: int,
+    config: CloudflareProxyConfig,
+    model_state: CloudflareModelState | None = None,
+) -> ThreadingHTTPServer:
+    handler = make_handler(config, CloudflareWorkersAIClient(config), model_state)
     try:
         return ThreadingHTTPServer((host, port), handler)
     except OSError as exc:
@@ -1260,13 +1719,18 @@ def create_proxy_server(host: str, port: int, config: CloudflareProxyConfig) -> 
             ) from exc
         raise
 
-
-def serve_proxy(host: str, port: int, config: CloudflareProxyConfig) -> None:
-    server = create_proxy_server(host, port, config)
+def serve_proxy(
+    host: str,
+    port: int,
+    config: CloudflareProxyConfig,
+    model_state: CloudflareModelState | None = None,
+) -> None:
+    state = model_state or CloudflareModelState(config)
+    server = create_proxy_server(host, port, config, state)
     actual_port = server.server_address[1]
     print(
         "Cloudflare Ollama proxy listening on "
-        f"http://{host}:{actual_port} for {config.model_alias} -> {config.model}"
+        f"http://{host}:{actual_port} using {state.active_model}"
     )
     print(f"Set OLLAMA_HOST=http://{host}:{actual_port} before running ollama launch.")
     try:
@@ -1283,8 +1747,10 @@ def launch_cloudflare_claude(
     config: CloudflareProxyConfig,
     *,
     claude_command: str = "claude",
+    model_state: CloudflareModelState | None = None,
 ) -> int:
-    server = create_proxy_server(host, port, config)
+    state = model_state or CloudflareModelState(config)
+    server = create_proxy_server(host, port, config, state)
     actual_host, actual_port = server.server_address
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
@@ -1292,15 +1758,15 @@ def launch_cloudflare_claude(
     ollama_host = f"http://{actual_host}:{actual_port}"
     print(
         "Cloudflare Ollama proxy listening on "
-        f"{ollama_host} for {config.model_alias} -> {config.model}"
+        f"{ollama_host} using {state.active_model}"
     )
-    print(f"Launching ollama launch {claude_command} --model {config.model_alias}")
+    print(f"Launching ollama launch {claude_command} --model {state.active_alias}")
 
     env = os.environ.copy()
     env["OLLAMA_HOST"] = ollama_host
     try:
         return subprocess.run(
-            ["ollama", "launch", claude_command, "--model", config.model_alias],
+            ["ollama", "launch", claude_command, "--model", state.active_alias],
             env=env,
             check=False,
         ).returncode
@@ -1319,6 +1785,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--model", default=None, help=f"Workers AI model (default: {DEFAULT_MODEL})")
+    parser.add_argument(
+        "--model-profile",
+        choices=sorted(MODEL_PROFILES),
+        default=None,
+        help="Model selection profile when discovery is enabled",
+    )
+    parser.add_argument(
+        "--no-discover-models",
+        action="store_true",
+        help="Disable Cloudflare model discovery and use the configured model",
+    )
     parser.add_argument("--env-file", default=".env", help="Environment file to load before startup")
     parser.add_argument("--timeout-seconds", type=int, default=None, help="Cloudflare request timeout")
     parser.add_argument("--retry-attempts", type=int, default=None, help="Cloudflare transient retry attempts")
@@ -1358,6 +1835,9 @@ def main(argv: list[str] | None = None) -> int:
             api_token=config.api_token,
             model=config.model,
             model_alias=config.model_alias,
+            legacy_model_alias=config.legacy_model_alias,
+            model_profile=args.model_profile or config.model_profile,
+            discover_models=False if args.no_discover_models else config.discover_models,
             timeout_seconds=(
                 args.timeout_seconds
                 if args.timeout_seconds is not None
@@ -1380,9 +1860,14 @@ def main(argv: list[str] | None = None) -> int:
                 else config.max_tool_result_chars
             ),
         )
+        model_state = CloudflareModelState(config)
+        model_state.refresh(CloudflareWorkersAIClient(config))
 
         if args.smoke_test:
-            response = smoke_test(config)
+            response = CloudflareWorkersAIClient(config).chat(
+                [{"role": "user", "content": "Reply with exactly: entigram-cloudflare-ok"}],
+                model=model_state.active_model,
+            )
             print(response.strip())
             return 0
 
@@ -1392,9 +1877,10 @@ def main(argv: list[str] | None = None) -> int:
                 args.port,
                 config,
                 claude_command=args.claude_command,
+                model_state=model_state,
             )
 
-        serve_proxy(args.host, args.port, config)
+        serve_proxy(args.host, args.port, config, model_state=model_state)
         return 0
     except CloudflareProxyError as exc:
         print(f"Error: {exc}")
