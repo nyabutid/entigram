@@ -55,6 +55,9 @@ cloudflare-claude: ## Starts a dynamic Cloudflare proxy and launches Claude Code
 	@echo "Launching Claude Code through Cloudflare Workers AI..."
 	@$(PYTHON) -m entigram.cli_runner.etg_cli cloudflare-claude
 
+agent-start: ## Prints portable agent boot instructions and compact hydration context
+	@$(PYTHON) -m entigram.cli_runner.etg_cli agent start
+
 test: ## Runs unit tests and Entigram-on-Entigram self-validation
 	@echo "Running Entigram Test Suite..."
 	@export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) -m unittest discover tests
@@ -71,9 +74,7 @@ reset: clean
 
 handoff: ## Runs the immutable governance pre-handoff gate sequence
 	@echo "Anchoring delivery state..."
-	@$(PYTHON) -m entigram.cli_runner.etg_cli broker guard
-	@$(PYTHON) -m entigram.cli_runner.etg_cli warden lock
-	@$(PYTHON) -m entigram.cli_runner.etg_cli broker deliver
+	@$(PYTHON) -m entigram.cli_runner.etg_cli broker handoff
 	@echo "Governance sequence complete. Ready to commit."
 
 generate-agent: ## Scaffolds a new custom edge-agent pre-wired to the state ledger (Usage: make generate-agent name=my_custom_api)

@@ -2,13 +2,14 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import requests
 
 from entigram.cli_runner.cloudflare_ollama_proxy import (
     CloudflareProxyConfig,
     CloudflareProxyError,
+    CloudflareModelState,
     CloudflareWorkersAIClient,
     DEFAULT_MODEL_ALIAS,
     aggregate_streaming_chat_completion,
@@ -18,15 +19,22 @@ from entigram.cli_runner.cloudflare_ollama_proxy import (
     anthropic_models_response,
     chat_stream_lines,
     cloudflare_setup_instructions,
+    classify_model_capability,
     compact_messages_for_cloudflare,
     compact_text,
     config_from_environment,
+    discover_cloudflare_model_profiles,
     extract_completion_content,
     generate_stream_lines,
+    is_model_control_command,
     launch_cloudflare_claude,
     make_handler,
+    model_control_response,
+    model_control_selector,
+    model_profile_from_cloudflare_item,
     non_stream_chat_response,
     non_stream_generate_response,
+    normalize_messages_for_cloudflare,
     parse_env_file,
     parse_tool_arguments,
     prompt_to_messages,
@@ -36,6 +44,7 @@ from entigram.cli_runner.cloudflare_ollama_proxy import (
     request_path,
     serve_proxy,
     sse_event_bytes,
+    stringify_message_content,
     tags_response,
 )
 
@@ -70,7 +79,9 @@ class TestCloudflareOllamaProxy(unittest.TestCase):
             "CLOUDFLARE_ACCOUNT_ID": "account-id",
             "CLOUDFLARE_API_TOKEN": "token",
             "CLOUDFLARE_AI_MODEL": "@cf/zai-org/glm-5.2",
-            "CLOUDFLARE_OLLAMA_MODEL_ALIAS": "glm-cloudflare",
+            "CLOUDFLARE_OLLAMA_MODEL_ALIAS": "legacy-glm-cloudflare",
+            "CLOUDFLARE_MODEL_PROFILE": "coding",
+            "CLOUDFLARE_DISCOVER_MODELS": "false",
             "CLOUDFLARE_PROXY_TIMEOUT_SECONDS": "301",
             "CLOUDFLARE_PROXY_RETRY_ATTEMPTS": "4",
             "CLOUDFLARE_PROXY_RETRY_SLEEP_SECONDS": "7",
@@ -85,7 +96,10 @@ class TestCloudflareOllamaProxy(unittest.TestCase):
         self.assertEqual(config.account_id, "account-id")
         self.assertEqual(config.api_token, "token")
         self.assertEqual(config.model, "@cf/zai-org/glm-5.2")
-        self.assertEqual(config.model_alias, "glm-cloudflare")
+        self.assertEqual(config.model_alias, "@cf/zai-org/glm-5.2")
+        self.assertEqual(config.legacy_model_alias, "legacy-glm-cloudflare")
+        self.assertEqual(config.model_profile, "coding")
+        self.assertFalse(config.discover_models)
         self.assertEqual(config.timeout_seconds, 301)
         self.assertEqual(config.retry_attempts, 4)
         self.assertEqual(config.retry_sleep_seconds, 7)
@@ -111,12 +125,157 @@ class TestCloudflareOllamaProxy(unittest.TestCase):
             api_token="token",
             model="@cf/zai-org/glm-5.2",
             model_alias=DEFAULT_MODEL_ALIAS,
+            legacy_model_alias="glm-cloudflare",
         )
 
         self.assertEqual(config.resolve_model(DEFAULT_MODEL_ALIAS), "@cf/zai-org/glm-5.2")
+        self.assertEqual(config.resolve_model("glm-cloudflare"), "@cf/zai-org/glm-5.2")
         self.assertEqual(config.resolve_model("@cf/zai-org/glm-5.2"), "@cf/zai-org/glm-5.2")
         self.assertEqual(config.display_model("@cf/zai-org/glm-5.2"), DEFAULT_MODEL_ALIAS)
-        self.assertEqual(config.display_model(DEFAULT_MODEL_ALIAS), DEFAULT_MODEL_ALIAS)
+        self.assertEqual(config.display_model("glm-cloudflare"), DEFAULT_MODEL_ALIAS)
+
+    def test_model_profile_detects_code_capable_models(self):
+        self.assertEqual(
+            classify_model_capability(
+                "@cf/moonshotai/kimi-k2.7-code",
+                description="Code model with multi-turn tool calling for agentic workloads",
+                capabilities=("Function calling", "Reasoning"),
+            ),
+            "coding",
+        )
+        self.assertEqual(
+            classify_model_capability(
+                "@cf/zhipu/glm-4.7-flash",
+                description="Optimized for dialogue and instruction following",
+            ),
+            "conversation",
+        )
+
+    def test_model_profile_from_cloudflare_item_uses_ai_model_name(self):
+        profile = model_profile_from_cloudflare_item(
+            {
+                "name": "@cf/moonshotai/kimi-k2.7-code",
+                "description": "Code optimized model with function calling",
+                "task": "Text Generation",
+                "capabilities": [{"name": "Function calling"}, {"name": "Reasoning"}],
+            }
+        )
+
+        self.assertEqual(profile.model_id, "@cf/moonshotai/kimi-k2.7-code")
+        self.assertEqual(profile.alias, "@cf/moonshotai/kimi-k2.7-code")
+        self.assertEqual(profile.capability, "coding")
+
+    def test_tags_response_advertises_ai_model_names(self):
+        profile = model_profile_from_cloudflare_item(
+            {
+                "name": "moonshotai/kimi-k3",
+                "description": "Conversation model",
+            }
+        )
+
+        tags = tags_response([profile])
+
+        self.assertEqual(tags["models"][0]["name"], "moonshotai/kimi-k3")
+        self.assertEqual(tags["models"][1]["name"], "moonshotai/kimi-k3:latest")
+
+    def test_model_state_auto_selects_coding_model_and_keeps_conversation_switch(self):
+        class FakeClient:
+            config = CloudflareProxyConfig(account_id="account-id", api_token="token")
+
+            def search_models(self):
+                return [
+                    {
+                        "name": "@cf/zhipu/glm-4.7-flash",
+                        "description": "Dialogue and instruction following",
+                    },
+                    {
+                        "name": "@cf/moonshotai/kimi-k2.7-code",
+                        "description": "Code model for agentic workloads with function calling",
+                    },
+                ]
+
+        state = CloudflareModelState(
+            CloudflareProxyConfig(account_id="account-id", api_token="token")
+        )
+        profiles = state.refresh(FakeClient())
+
+        self.assertEqual(state.active_model, "@cf/moonshotai/kimi-k2.7-code")
+        self.assertEqual(state.active_alias, "@cf/moonshotai/kimi-k2.7-code")
+        self.assertEqual([p.model_id for p in profiles], [
+            "@cf/zhipu/glm-4.7-flash",
+            "@cf/moonshotai/kimi-k2.7-code",
+            "@cf/zai-org/glm-5.2",
+        ])
+
+        switched = state.switch("conversation")
+        self.assertEqual(switched.model_id, "@cf/zhipu/glm-4.7-flash")
+        self.assertEqual(state.active_model, "@cf/zhipu/glm-4.7-flash")
+
+    def test_model_state_resolves_deprecated_alias_as_selector_only(self):
+        state = CloudflareModelState(
+            CloudflareProxyConfig(
+                account_id="account-id",
+                api_token="token",
+                model="moonshotai/kimi-k3",
+                legacy_model_alias="cloudflare-kimi-k3",
+            )
+        )
+
+        self.assertEqual(state.active_alias, "moonshotai/kimi-k3")
+        self.assertEqual(state.resolve_model("cloudflare-kimi-k3"), "moonshotai/kimi-k3")
+
+    def test_model_control_lists_and_switches_models(self):
+        class FakeClient:
+            config = CloudflareProxyConfig(account_id="account-id", api_token="token")
+
+            def search_models(self):
+                return [
+                    {"name": "moonshotai/kimi-k3", "description": "Conversation model"},
+                    {"name": "@cf/moonshotai/kimi-k2.7-code", "description": "Code optimized"},
+                ]
+
+        state = CloudflareModelState(
+            CloudflareProxyConfig(account_id="account-id", api_token="token")
+        )
+        state.refresh(FakeClient())
+
+        listing = model_control_response("cf model list", state)
+        self.assertIn("@cf/moonshotai/kimi-k2.7-code", listing)
+        self.assertIn("moonshotai/kimi-k3", listing)
+        self.assertIn("cf model coding", listing)
+
+        response = model_control_response("cf model moonshotai/kimi-k3", state)
+        self.assertIn("Switched Cloudflare model to moonshotai/kimi-k3", response)
+        self.assertEqual(state.active_model, "moonshotai/kimi-k3")
+
+    def test_model_control_command_avoids_claude_slash_namespace(self):
+        self.assertTrue(is_model_control_command("cf model list"))
+        self.assertTrue(is_model_control_command("cf model coding"))
+        self.assertFalse(is_model_control_command("/model list"))
+        self.assertEqual(model_control_selector("cf model conversation"), "conversation")
+        self.assertEqual(model_control_selector("/model list"), "list")
+
+    @patch("entigram.cli_runner.cloudflare_ollama_proxy.requests.get")
+    def test_discover_cloudflare_models_calls_model_search_api(self, get):
+        get.return_value = SimpleNamespace(
+            ok=True,
+            json=lambda: {
+                "success": True,
+                "result": [
+                    {
+                        "name": "@cf/moonshotai/kimi-k2.7-code",
+                        "description": "Code optimized",
+                    }
+                ],
+            },
+        )
+        config = CloudflareProxyConfig(account_id="account-id", api_token="token")
+        profiles = discover_cloudflare_model_profiles(CloudflareWorkersAIClient(config))
+
+        self.assertEqual(profiles[0].model_id, "@cf/moonshotai/kimi-k2.7-code")
+        get.assert_called_once()
+        _, kwargs = get.call_args
+        self.assertEqual(kwargs["headers"]["Authorization"], "Bearer token")
 
     def test_compact_text_preserves_head_and_tail(self):
         text = "a" * 100 + "middle" + "z" * 100
@@ -145,6 +304,93 @@ class TestCloudflareOllamaProxy(unittest.TestCase):
         self.assertLessEqual(len(compacted[1]["content"]), 180)
         self.assertIn("compacted an oversized tool result", compacted[1]["content"])
 
+    def test_cloudflare_messages_always_have_string_content(self):
+        messages = [
+            {"role": "user", "content": [{"type": "text", "text": "hydrate"}]},
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "toolu_1",
+                        "type": "function",
+                        "function": {"name": "Bash", "arguments": '{"cmd":"hydrate"}'},
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "toolu_1",
+                "content": [{"type": "text", "text": "large hydrate output"}],
+            },
+            {"role": "user", "content": {"unexpected": "structured block"}},
+        ]
+
+        normalized = normalize_messages_for_cloudflare(messages)
+
+        self.assertEqual(normalized[0]["content"], "hydrate")
+        self.assertEqual(normalized[1]["content"], "")
+        self.assertEqual(normalized[2]["content"], "large hydrate output")
+        self.assertEqual(normalized[3]["content"], '{"unexpected":"structured block"}')
+        self.assertTrue(all(isinstance(m["content"], str) for m in normalized))
+
+    def test_stringify_preserves_boundaries_between_text_blocks(self):
+        # Failure mode: adjacent text blocks fused with "" joining, corrupting
+        # word boundaries in the payload Cloudflare receives.
+        content = [
+            {"type": "text", "text": "Hello,"},
+            {"type": "text", "text": "world."},
+        ]
+        self.assertEqual(stringify_message_content(content), "Hello,\nworld.")
+
+    def test_stringify_tool_result_with_nested_block_list(self):
+        # Failure mode: tool_result content that is itself a list of blocks
+        # recursed and fused without separators.
+        content = [
+            {
+                "type": "tool_result",
+                "tool_use_id": "toolu_1",
+                "content": [
+                    {"type": "text", "text": "line1"},
+                    {"type": "text", "text": "line2"},
+                ],
+            }
+        ]
+        self.assertEqual(stringify_message_content(content), "line1\nline2")
+
+    def test_stringify_unknown_block_with_non_serializable_value_degrades(self):
+        # Failure mode: json.dumps on an unknown block containing a
+        # non-JSON-serializable value raised TypeError -> 500 at the HTTP
+        # boundary instead of a normalized payload.
+        content = [{"type": "weird", "when": object()}]
+        result = stringify_message_content(content)
+        self.assertIsInstance(result, str)
+        self.assertTrue(result)  # fell back to str(), did not raise
+
+    def test_stringify_handles_none_scalar_and_bytes_content(self):
+        # Failure mode: None content must become "" (Cloudflare rejects null
+        # content); scalars and bytes must stringify without crashing.
+        self.assertEqual(stringify_message_content(None), "")
+        self.assertEqual(stringify_message_content(0), "0")
+        self.assertEqual(stringify_message_content(True), "True")
+        self.assertIsInstance(stringify_message_content(b"raw"), str)
+
+    def test_normalize_drops_empty_blocks_and_keeps_message_shape(self):
+        # Failure mode: normalizing a message must not strip sibling keys
+        # (tool_calls, tool_call_id) and must leave non-list content intact.
+        messages = [
+            {
+                "role": "assistant",
+                "content": [{"type": "text", "text": ""}],
+                "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}}],
+            },
+            {"role": "tool", "tool_call_id": "c1", "content": "plain string"},
+        ]
+        normalized = normalize_messages_for_cloudflare(messages)
+        self.assertEqual(normalized[0]["content"], "")
+        self.assertIn("tool_calls", normalized[0])
+        self.assertEqual(normalized[1]["content"], "plain string")
+        self.assertEqual(normalized[1]["tool_call_id"], "c1")
+
     def test_prompt_compaction_can_be_disabled(self):
         config = CloudflareProxyConfig(
             account_id="account-id",
@@ -154,7 +400,7 @@ class TestCloudflareOllamaProxy(unittest.TestCase):
         )
         messages = [{"role": "tool", "content": "y" * 200}]
 
-        self.assertIs(compact_messages_for_cloudflare(messages, config), messages)
+        self.assertEqual(compact_messages_for_cloudflare(messages, config), messages)
 
     def test_request_path_strips_query_string(self):
         self.assertEqual(request_path("/v1/messages/count_tokens?beta=true"), "/v1/messages/count_tokens")
@@ -527,7 +773,7 @@ class TestCloudflareOllamaProxy(unittest.TestCase):
         result = launch_cloudflare_claude("127.0.0.1", 0, config)
 
         self.assertEqual(result, 0)
-        create_server.assert_called_once_with("127.0.0.1", 0, config)
+        create_server.assert_called_once_with("127.0.0.1", 0, config, ANY)
         run.assert_called_once()
         self.assertEqual(
             run.call_args.args[0],

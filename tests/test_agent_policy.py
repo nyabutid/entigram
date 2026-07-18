@@ -19,7 +19,9 @@ class TestAgentPolicy(unittest.TestCase):
     def test_canonical_policy_exists_and_declares_bootstrap(self):
         policy = POLICY.read_text()
 
+        self.assertIn("Run `hydrate`", policy)
         self.assertIn("python3 -m entigram.cli_runner.etg_cli hydrate", policy)
+        self.assertIn("broker preflight --file <path>", policy)
         self.assertIn("broker impact --file <path>", policy)
         self.assertIn(".etg/state.db", policy)
 
@@ -49,6 +51,17 @@ class TestAgentPolicy(unittest.TestCase):
         self.assertIn("EXPECTATION: Agent Policy Discoverability", schema)
         self.assertIn("EXPECTATION: Deterministic Pre-Handoff Gate", schema)
         self.assertIn("python -m unittest tests.test_agent_policy", schema)
+
+    def test_portable_agent_commands_are_advertised(self):
+        makefile = (ROOT / "Makefile").read_text()
+        pyproject = (ROOT / "pyproject.toml").read_text()
+        cli = (ROOT / "entigram" / "cli_runner" / "etg_cli.py").read_text()
+
+        self.assertIn('hydrate = "entigram.cli_runner.etg_cli:main"', pyproject)
+        self.assertIn("agent-start:", makefile)
+        self.assertIn("broker handoff", makefile)
+        self.assertIn('"preflight"', cli)
+        self.assertIn('"agent-instructions"', cli)
 
 
 if __name__ == "__main__":

@@ -110,6 +110,173 @@ def _parse_json_arg(value, *, default=None):
     return parsed
 
 
+def _agent_instructions_text():
+    return """Entigram agent instructions
+
+1. Start every repository session with:
+   hydrate
+
+   Fallback when the etg console script is unavailable:
+   etg hydrate
+   python3 -m entigram.cli_runner.etg_cli hydrate
+
+2. Read the local governance contract before edits:
+   .etg/agent_policy.md
+   .etg/entigram.yaml
+   schema.lds
+
+3. For a concise compliance check, run:
+   etg agent start
+
+4. Before source, schema, ontology, package, or release changes, run:
+   etg broker preflight --file <path>
+   etg broker impact --file <path>
+
+5. Treat schema.lds as closed-world. Do not invent entities, attributes, or alignments.
+
+6. Use Entigram MCP/CLI paths for governed writes. Do not directly mutate .etg/state.db or .etg/entigram_state.db.
+
+7. Before handoff after changes, run:
+   etg broker handoff
+   etg broker status
+
+   If this repository provides Make, make handoff may wrap the same CLI sequence.
+
+8. Do not hand off unless broker status reports:
+   Delivery status: current
+"""
+
+
+def _workspace_relative_path(target_dir, changed_file):
+    target_path = Path(target_dir).expanduser().resolve()
+    candidate = Path(changed_file).expanduser()
+    if not candidate.is_absolute():
+        candidate = target_path / candidate
+    try:
+        return candidate.resolve().relative_to(target_path).as_posix()
+    except (OSError, ValueError):
+        return str(changed_file).replace("\\", "/").lstrip("./")
+
+
+def _build_agent_preflight(target_dir, changed_file, impact):
+    rel_path = _workspace_relative_path(target_dir, changed_file)
+    governed_files = {
+        "schema.lds",
+        "schema.ttl",
+        ".etg/agent_policy.md",
+        ".etg/entigram.yaml",
+    }
+    ledger_files = {
+        ".etg/state.db",
+        ".etg/entigram_state.db",
+    }
+    implementation_prefixes = (
+        "entigram/",
+        "tests/",
+        "scripts/",
+        "packages/",
+    )
+    implementation_files = {
+        "Makefile",
+        "pyproject.toml",
+        "setup.py",
+        "requirements.txt",
+    }
+
+    warnings = []
+    next_steps = [
+        "Run hydrate if this session has not already been hydrated.",
+        "Run broker impact --file before editing risky files.",
+        "Run etg broker handoff and etg broker status before handoff after changes.",
+    ]
+
+    requires_warden_lock = False
+    if rel_path in ledger_files:
+        risk = "critical"
+        warnings.append("Direct ledger edits are outside the governed write path.")
+        next_steps.insert(0, "Use broker, warden, or package CLI APIs instead of writing the ledger file.")
+    elif rel_path in governed_files or rel_path.endswith(".lds") or rel_path.endswith(".ttl"):
+        risk = "high"
+        requires_warden_lock = rel_path in {"schema.lds", "schema.ttl"}
+        warnings.append("This file participates in the closed-world governance contract.")
+        if requires_warden_lock:
+            next_steps.insert(0, "After governed schema or ontology changes, run etg broker handoff.")
+    elif rel_path.startswith(".etg/"):
+        risk = "high"
+        warnings.append("This .etg file may affect workspace governance state.")
+    elif rel_path in implementation_files or rel_path.startswith(implementation_prefixes):
+        risk = "medium"
+    else:
+        risk = "low"
+
+    if impact.get("expectations"):
+        warnings.append("Modeled expectations reference this change path.")
+    if impact.get("entities") or impact.get("relationships"):
+        warnings.append("Schema entities or relationships may be affected.")
+
+    return {
+        "file": rel_path,
+        "risk": risk,
+        "requires_impact": risk in {"medium", "high", "critical"} or bool(impact.get("expectations")),
+        "requires_handoff": risk in {"medium", "high", "critical"},
+        "requires_warden_lock": requires_warden_lock,
+        "impact": impact,
+        "warnings": warnings,
+        "next_steps": next_steps,
+    }
+
+
+def _format_agent_preflight(preflight):
+    impact = preflight.get("impact", {})
+    lines = [
+        f"Preflight: {preflight['file']}",
+        f"Risk: {preflight['risk']}",
+        f"Requires impact: {'yes' if preflight['requires_impact'] else 'no'}",
+        f"Requires handoff: {'yes' if preflight['requires_handoff'] else 'no'}",
+        f"Requires warden lock: {'yes' if preflight['requires_warden_lock'] else 'no'}",
+        "",
+        "Impact:",
+        f"  Expectations: {', '.join(impact.get('expectations') or ['none'])}",
+        f"  Entities: {', '.join(impact.get('entities') or ['none'])}",
+        f"  Relationships: {', '.join(impact.get('relationships') or ['none'])}",
+    ]
+    if preflight.get("warnings"):
+        lines.extend(["", "Warnings:"])
+        lines.extend(f"  - {warning}" for warning in preflight["warnings"])
+    if preflight.get("next_steps"):
+        lines.extend(["", "Next steps:"])
+        lines.extend(f"  - {step}" for step in preflight["next_steps"])
+    return "\n".join(lines)
+
+
+def _resolve_workspace_dir(raw_dir=None):
+    if raw_dir:
+        return Path(raw_dir).expanduser().resolve()
+    root = find_project_root(os.getcwd())
+    return Path(root).resolve() if root else Path.cwd().resolve()
+
+
+def _agent_start_text(target_dir):
+    target_path = Path(target_dir).expanduser().resolve()
+    manifest_path = target_path / ".etg" / "entigram.yaml"
+    policy_path = target_path / ".etg" / "agent_policy.md"
+    schema_path = target_path / "schema.lds"
+    lines = [
+        f"Entigram agent start: {target_path}",
+        "",
+        "Required local files:",
+        f"  .etg/entigram.yaml: {'found' if manifest_path.exists() else 'missing'}",
+        f"  .etg/agent_policy.md: {'found' if policy_path.exists() else 'missing'}",
+        f"  schema.lds: {'found' if schema_path.exists() else 'missing'}",
+        "",
+        _agent_instructions_text().rstrip(),
+        "",
+        "Compact hydration vector:",
+        get_hydration_vector(target_path, compact=True),
+    ]
+    return "\n".join(lines)
+
+
 def get_default_engine():
     """Probes the system for available AI agents (Antigravity, Claude, or Codex)."""
     if shutil.which("agy"):
@@ -337,6 +504,11 @@ def get_hydration_vector(target_path: Path, compact: bool = False) -> str:
     if schema_path.exists():
         schema_content = schema_path.read_text()
 
+    agent_policy_path = entigram_dir / "agent_policy.md"
+    agent_policy = ""
+    if agent_policy_path.exists():
+        agent_policy = agent_policy_path.read_text()
+
     commissioner_checklist = {"expectation_count": 0, "items": []}
     if schema_content:
         from entigram.governance.commissioner import Commissioner
@@ -355,6 +527,8 @@ def get_hydration_vector(target_path: Path, compact: bool = False) -> str:
             "package_version": package_version,
             "workspace_schema_version": workspace_schema_version,
             "packages": list(manifest.get("packages", {}).keys()),
+            "agent_policy_path": ".etg/agent_policy.md",
+            "agent_policy": agent_policy,
             "physical_laws": schema_content,
             "commissioner": commissioner_checklist,
             "semantic_alignments": alignments,
@@ -411,6 +585,9 @@ def launch_ui(target_dir=None):
         return False
 
 def main():
+    if Path(sys.argv[0]).name == "hydrate":
+        sys.argv.insert(1, "hydrate")
+
     parser = argparse.ArgumentParser(description="Entigram Headless Compiler CLI")
     parser.add_argument("--version", action="version", version=f"etg {get_package_version()}")
     subparsers = parser.add_subparsers(dest="command", help="Commands")
@@ -597,6 +774,17 @@ def main():
         help="Workers AI model (default: @cf/zai-org/glm-5.2)",
     )
     cloudflare_proxy_parser.add_argument(
+        "--model-profile",
+        choices=["auto", "coding", "configured", "conversation"],
+        default=None,
+        help="Model selection profile when Cloudflare model discovery is enabled",
+    )
+    cloudflare_proxy_parser.add_argument(
+        "--no-discover-models",
+        action="store_true",
+        help="Disable Cloudflare model discovery and use the configured model",
+    )
+    cloudflare_proxy_parser.add_argument(
         "--env-file",
         default=".env",
         help="Environment file to load before startup",
@@ -633,6 +821,17 @@ def main():
         help="Workers AI model (default: @cf/zai-org/glm-5.2)",
     )
     cloudflare_claude_parser.add_argument(
+        "--model-profile",
+        choices=["auto", "coding", "configured", "conversation"],
+        default=None,
+        help="Model selection profile when Cloudflare model discovery is enabled",
+    )
+    cloudflare_claude_parser.add_argument(
+        "--no-discover-models",
+        action="store_true",
+        help="Disable Cloudflare model discovery and use the configured model",
+    )
+    cloudflare_claude_parser.add_argument(
         "--env-file",
         default=".env",
         help="Environment file to load before startup",
@@ -657,12 +856,20 @@ def main():
     ui_parser.add_argument("--dir", default=".", help="Target directory")
 
     # agent command
-    agent_launch_parser = subparsers.add_parser("agent", help="Launch your configured AI agent in the current workspace")
+    agent_launch_parser = subparsers.add_parser("agent", help="Start agent boot, show instructions, or launch your configured AI agent")
+    agent_launch_parser.add_argument(
+        "agent_action",
+        nargs="?",
+        choices=["start", "instructions"],
+        help="Run portable agent boot checks or print copy-paste instructions",
+    )
     agent_launch_parser.add_argument("--dir", help="Target directory")
     agent_launch_parser.add_argument("--engine", help="Override CLI Engine (Claude Code, Antigravity, Codex, Ollama)")
     agent_launch_parser.add_argument("--model", help="Specify model (e.g., qwen2.5, claude-3-opus)")
     agent_launch_parser.add_argument("--ollama-launch-option", help="Ollama launch target (e.g., claude, codex)")
     agent_launch_parser.add_argument("--headless", action="store_true", help="Run headlessly using stdin piping (Antigravity only)")
+
+    subparsers.add_parser("agent-instructions", help="Print copy-paste instructions for agents")
 
     # interview command
     interview_parser = subparsers.add_parser("interview", help="Launch an autonomous agent to model your domain")
@@ -808,6 +1015,13 @@ def main():
     resume_parser.add_argument("--mark-resumed", action="store_true", help="Mark the returned checkpoint as resumed")
     resume_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
 
+    preflight_parser = broker_subparsers.add_parser(
+        "preflight",
+        help="Show file risk, impact, and required governance steps before editing",
+    )
+    preflight_parser.add_argument("--file", required=True, help="Path intended for change")
+    preflight_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
+
     commission_parser = broker_subparsers.add_parser(
         "commission",
         aliases=["commissioner"],
@@ -940,6 +1154,37 @@ def main():
     )
     resolve_parser.add_argument("--agent", help="Agent ID to attribute evidence to")
     resolve_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
+
+    handoff_parser = broker_subparsers.add_parser(
+        "handoff",
+        help="Run guard, warden lock, deliver, and status without requiring Make",
+    )
+    handoff_parser.add_argument(
+        "--proof",
+        action="append",
+        default=[],
+        help="Proof text or artifact reference",
+    )
+    handoff_parser.add_argument(
+        "--blocked",
+        action="append",
+        default=[],
+        metavar="CHECK",
+        help="Mark a validation_check as Blocked",
+    )
+    handoff_parser.add_argument(
+        "--artifact",
+        action="append",
+        default=[],
+        help="Local artifact path to hash and attach to the delivery snapshot",
+    )
+    handoff_parser.add_argument(
+        "--artifact-role",
+        default="delivery_artifact",
+        help="Role to apply to --artifact entries",
+    )
+    handoff_parser.add_argument("--agent", help="Agent ID to attribute evidence to")
+    handoff_parser.add_argument("--json", action="store_true", dest="json_output", help="Print result as JSON")
 
     add_package_parser = broker_subparsers.add_parser("add-package", help="Add a package to the manifest")
     add_package_parser.add_argument("--name", required=True, help="Package name")
@@ -1418,6 +1663,10 @@ def main():
         ]
         if args.model:
             proxy_args.extend(["--model", args.model])
+        if getattr(args, "model_profile", None):
+            proxy_args.extend(["--model-profile", args.model_profile])
+        if getattr(args, "no_discover_models", False):
+            proxy_args.append("--no-discover-models")
         if args.timeout_seconds is not None:
             proxy_args.extend(["--timeout-seconds", str(args.timeout_seconds)])
         if args.retry_attempts is not None:
@@ -1455,7 +1704,19 @@ def main():
         if not launch_ui(args.dir):
             sys.exit(1)
 
+    elif args.command == "agent-instructions":
+        print(_agent_instructions_text())
+
     elif args.command == "agent":
+        if getattr(args, "agent_action", None) == "instructions":
+            print(_agent_instructions_text())
+            return
+
+        if getattr(args, "agent_action", None) == "start":
+            target_dir = _resolve_workspace_dir(getattr(args, "dir", None))
+            print(_agent_start_text(target_dir))
+            return
+
         target_dir = args.dir
         if not target_dir:
             root = find_project_root(os.getcwd())
@@ -1927,6 +2188,13 @@ RELATIONSHIPS:
                 pending = ", ".join(plan.get("pending_task_ids") or [])
                 if pending:
                     print(f"   Pending tasks: {pending}")
+        elif args.broker_command == "preflight":
+            impact = broker.analyze_impact(args.file)
+            preflight = _build_agent_preflight(args.dir, args.file, impact)
+            if getattr(args, "json_output", False):
+                print(json.dumps(preflight, indent=2, sort_keys=True))
+            else:
+                print(_format_agent_preflight(preflight))
         elif args.broker_command == "impact":
             impact = broker.analyze_impact(args.file)
             print(json.dumps(impact, indent=2))
@@ -2113,6 +2381,73 @@ RELATIONSHIPS:
                         print(f"  TODO {item['name']}: {item['validation_check']}")
                     print("\nRun with --run-missing-proofs to execute and record them.")
                     sys.exit(1)
+        elif args.broker_command == "handoff":
+            from entigram.governance.warden import Warden
+            json_output = getattr(args, "json_output", False)
+            report = {}
+
+            if not json_output:
+                print("Step 1/4: broker guard")
+            guard_result = broker.expectation_guard(
+                proofs=getattr(args, "proof", []),
+                blocked_checks=getattr(args, "blocked", []),
+                agent_id=getattr(args, "agent", None),
+            )
+            report["guard"] = guard_result
+            if not json_output:
+                print(broker.format_expectation_guard(guard_result))
+            if not guard_result["valid"]:
+                if json_output:
+                    print(json.dumps(report, indent=2, sort_keys=True))
+                sys.exit(1)
+
+            if not json_output:
+                print("\nStep 2/4: warden lock")
+                Warden(args.dir).lock_fingerprint()
+            else:
+                from contextlib import redirect_stdout
+                from io import StringIO
+                with redirect_stdout(StringIO()):
+                    Warden(args.dir).lock_fingerprint()
+            report["warden_lock"] = {"ok": True}
+
+            if not json_output:
+                print("\nStep 3/4: broker deliver")
+            deliver_result = broker.commission_and_record(
+                proofs=getattr(args, "proof", []),
+                blocked_checks=getattr(args, "blocked", []),
+                agent_id=getattr(args, "agent", None),
+                artifact_paths=getattr(args, "artifact", []),
+                artifact_role=getattr(args, "artifact_role", "delivery_artifact"),
+            )
+            report["deliver"] = deliver_result
+            if not json_output:
+                print(broker.format_commission(deliver_result))
+                if deliver_result["valid"]:
+                    snap = deliver_result.get("snapshot_id", "unknown")
+                    ts = deliver_result.get("trust_score", {})
+                    print(f"\nDelivery snapshot: {snap}")
+                    print(f"Trust score: {ts.get('score', 0.0):.0%} (Grade {ts.get('grade', '?')})")
+                else:
+                    print("\nHandoff gate: FAILED. Resolve missing proofs before delivering.")
+            if not deliver_result["valid"]:
+                if json_output:
+                    print(json.dumps(report, indent=2, sort_keys=True))
+                sys.exit(1)
+
+            if not json_output:
+                print("\nStep 4/4: broker status")
+            status_result = broker.delivery_status(
+                artifact_paths=getattr(args, "artifact", []),
+                artifact_role=getattr(args, "artifact_role", "delivery_artifact"),
+            )
+            report["status"] = status_result
+            if json_output:
+                print(json.dumps(report, indent=2, sort_keys=True))
+            else:
+                print(broker.format_delivery_status(status_result))
+            if status_result.get("needs_recommission"):
+                sys.exit(1)
         elif args.broker_command == "add-package":
             if broker.add_package(args.name):
                 print(f"✅ Package '{args.name}' added to manifest.")

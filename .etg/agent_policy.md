@@ -6,10 +6,13 @@ duplicating handoff rules.
 
 ## Boot Sequence
 
-1. Run `python3 -m entigram.cli_runner.etg_cli hydrate`.
+1. Run `hydrate` in the initialized workspace. If the console script is not
+   available, run `etg hydrate` or
+   `python3 -m entigram.cli_runner.etg_cli hydrate`.
 2. Read `.etg/entigram.yaml`, `schema.lds`, and this file.
 3. If changing implementation behavior, run impact analysis before editing:
-   `python3 -m entigram.cli_runner.etg_cli broker impact --file <path>`.
+   `etg broker preflight --file <path>` and
+   `etg broker impact --file <path>`.
 
 ## Governance Rules
 
@@ -25,8 +28,11 @@ duplicating handoff rules.
 Before handing work back after source, schema, ontology, package, or release
 changes:
 
-1. Run `make handoff` (this automatically runs `broker guard`, `warden lock`, and `broker deliver`).
-2. Run `python3 -m entigram.cli_runner.etg_cli broker status`.
+1. Run `etg broker handoff` (this automatically runs `broker guard`,
+   `warden lock`, `broker deliver`, and `broker status`).
+2. Run `etg broker status`.
+
+If this repository provides Make, `make handoff` may wrap the same CLI sequence.
 
 `broker status` must report `Delivery status: current` before handoff.
 Do not run `warden lock` after `broker deliver`; `warden lock` mutates

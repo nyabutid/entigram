@@ -3,6 +3,7 @@ import os
 import sys
 import shutil
 import tempfile
+import json
 import yaml
 import sqlite3
 from io import StringIO
@@ -34,6 +35,17 @@ class TestCLIIntegration(unittest.TestCase):
             except Exception as e:
                 return False, str(e)
 
+    def run_executable(self, executable, args=None):
+        sys.stdout = StringIO()
+        with patch.object(sys, 'argv', [executable] + (args or [])):
+            try:
+                main()
+                return True, sys.stdout.getvalue()
+            except SystemExit as e:
+                return e.code == 0, sys.stdout.getvalue()
+            except Exception as e:
+                return False, str(e)
+
     def test_init_command(self):
         # Test init without --dir (requires Y/n)
         with patch('builtins.input', return_value='y'):
@@ -47,6 +59,17 @@ class TestCLIIntegration(unittest.TestCase):
             self.assertNotIn("entigram_version", manifest)
             self.assertEqual(manifest["schema_paths"], ["schema.lds"])
             self.assertTrue(manifest["state_ledger"].endswith(".etg/state.db"))
+            policy = Path(".etg/agent_policy.md")
+            self.assertTrue(policy.exists())
+            self.assertIn("Run `hydrate`", policy.read_text())
+            agent_files = [
+                Path("AGENTS.md"),
+                Path("CLAUDE.md"),
+                Path("AGY.md"),
+                Path("OLLAMA.md"),
+                Path("AGENT_INSTRUCTIONS.md"),
+            ]
+            self.assertTrue(any(".etg/agent_policy.md" in p.read_text() for p in agent_files if p.exists()))
 
     def test_version_flag(self):
         success, output = self.run_cli(['--version'])
@@ -56,6 +79,47 @@ class TestCLIIntegration(unittest.TestCase):
         pyproject = (Path(__file__).parent.parent / "pyproject.toml").read_text()
         version = re.search(r'version = "(.*?)"', pyproject).group(1)
         self.assertIn(f"etg {version}", output)
+
+    def test_hydrate_executable_alias_runs_hydrate_command(self):
+        self.run_cli(['init', '--dir', '.', '--force'])
+
+        success, output = self.run_executable('hydrate', ['--compact'])
+
+        self.assertTrue(success)
+        self.assertIn("--- ENTIGRAM HYDRATION SEQUENCE ---", output)
+        self.assertIn('"workspace_schema_version"', output)
+        self.assertIn('"agent_policy"', output)
+        self.assertIn("Run `hydrate`", output)
+
+    def test_agent_instructions_command_keeps_hydrate_first(self):
+        success, output = self.run_cli(['agent', 'instructions'])
+
+        self.assertTrue(success)
+        self.assertIn("Start every repository session with:\n   hydrate", output)
+        self.assertIn("etg broker preflight --file <path>", output)
+        self.assertIn("etg broker handoff", output)
+
+    def test_broker_preflight_reports_schema_risk_as_json(self):
+        self.run_cli(['init', '--dir', '.', '--force'])
+
+        success, output = self.run_cli(['broker', 'preflight', '--file', 'schema.lds', '--json'])
+
+        self.assertTrue(success)
+        preflight = json.loads(output)
+        self.assertEqual(preflight["file"], "schema.lds")
+        self.assertEqual(preflight["risk"], "high")
+        self.assertTrue(preflight["requires_impact"])
+        self.assertTrue(preflight["requires_handoff"])
+
+    def test_broker_handoff_runs_without_make(self):
+        self.run_cli(['init', '--dir', '.', '--force'])
+
+        success, output = self.run_cli(['broker', 'handoff'])
+
+        self.assertTrue(success)
+        self.assertIn("Step 1/4: broker guard", output)
+        self.assertIn("Step 4/4: broker status", output)
+        self.assertIn("Delivery status: current", output)
 
     def test_config_command(self):
         # First initialize

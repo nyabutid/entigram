@@ -6,6 +6,46 @@ from datetime import datetime
 from .project_history import add_project_to_history
 from .sqlite_ledger.paths import CANONICAL_LEDGER_NAME
 
+
+def _agent_policy_text() -> str:
+    return """# Entigram Agent Policy
+
+This file is the canonical project policy for agents working in this
+Entigram-initialized workspace.
+
+## Boot Sequence
+
+1. Run `hydrate` in the initialized workspace. If the console script is not
+   available, run `etg hydrate` or
+   `python3 -m entigram.cli_runner.etg_cli hydrate`.
+2. Read `.etg/entigram.yaml`, `schema.lds`, and this file.
+3. If changing implementation behavior, run impact analysis before editing:
+   `etg broker preflight --file <path>` and
+   `etg broker impact --file <path>`.
+
+## Governance Rules
+
+- Treat `schema.lds` as the closed-world contract for entities and attributes.
+- Use MCP/CLI tools for governed writes; do not bypass ledger APIs with ad hoc
+  SQL or direct state mutation.
+- Unknown entities, invented attributes, unverified alignments, and schema drift
+  must be rejected or escalated to the human operator.
+- Resolve conflicts through `.etg/state.db`.
+
+## Pre-Handoff Gate
+
+Before handing work back after source, schema, ontology, package, or release
+changes:
+
+1. Run `etg broker handoff`.
+2. Run `etg broker status`.
+
+`broker status` must report `Delivery status: current` before handoff.
+Do not run `warden lock` after `broker deliver`; `warden lock` mutates
+`.etg/entigram.yaml` and immediately invalidates the delivery snapshot.
+"""
+
+
 def inject_entigram_manifest(target_dir: str, selected_packages: list, cli_engine: str) -> bool:
     """
     Bootstraps a new Entigram workspace by injecting the YAML manifest 
@@ -38,6 +78,10 @@ def inject_entigram_manifest(target_dir: str, selected_packages: list, cli_engin
     with open(entigram_dir / "entigram.yaml", "w") as f:
         yaml.dump(manifest, f, default_flow_style=False)
 
+    policy_path = entigram_dir / "agent_policy.md"
+    if not policy_path.exists():
+        policy_path.write_text(_agent_policy_text())
+
     # 1.5 Generate/Append instruction file for agent awareness
     if cli_engine == "Antigravity":
         instruction_file = "AGY.md"
@@ -57,27 +101,31 @@ def inject_entigram_manifest(target_dir: str, selected_packages: list, cli_engin
 # Entigram Agent Context
 You are an edge-agent operating within a Entigram Federated Architecture.
 
+Read and follow `.etg/agent_policy.md` before changing this workspace.
+
 ## Workspace Context
 - **Manifest:** You MUST read `.etg/entigram.yaml` (using your `read_file` tool) to understand project metadata and active packages.
 - **Packages:** {", ".join(selected_packages)}
 - **Decisions Ledger:** Contradictions must be resolved via the human tie-breaker ledger at `.etg/state.db`.
 
 ## Primary Directives
-1. **Schema First:** Never generate code or ontologies before an Entigram Schema is explicitly defined in `schema.lds`.
-2. **Persistence:** You MUST maintain the local `schema.lds` and `draft_schema.lds` files. Update them (using your `replace` or `write_file` tools) after EVERY turn where new domain information is established.
-3. Broker Interaction: Use the Entigram CLI for cross-domain orchestration:
+1. **Hydrate First:** Run `hydrate` at the start of every coding or modeling session.
+2. **Schema First:** Never generate code or ontologies before an Entigram Schema is explicitly defined in `schema.lds`.
+3. **Persistence:** You MUST maintain the local `schema.lds` and `draft_schema.lds` files. Update them (using your `replace` or `write_file` tools) after EVERY turn where new domain information is established.
+4. Broker Interaction: Use the Entigram CLI for cross-domain orchestration:
+   - **Preflight Changes:** `etg broker preflight --file [PATH]`
+   - **Impact Analysis:** `etg broker impact --file [PATH]`
    - **Check Decisions:** `etg broker check --id [CONFLICT_ID]`
    - **Record Proposals:** `etg broker decide --id [ID] --type [ENTITY] --state [STATE] --rationale [WHY]`
    - **Report Conflicts:** `etg broker conflict --id [ID] --type [ENTITY] --states [JSON_STATES] --agent [AGENT_ID]`
    - **Align Domains:** `etg broker align --src_dom [DOM] --tgt_dom [DOM] --src_con [CON] --tgt_con [CON] --rat [WHY]`
    - **Validate Model:** `etg broker validate`
-   - **Expectation Guard:** `etg broker guard`
-   - **Commission Handoff:** `etg broker commission --proof [VALIDATION_EVIDENCE]`
+   - **Handoff:** `etg broker handoff`
 
-4. **Domain Isolation:** Treat external systems as black boxes.
-5. **Schema Contract Enforcement (Execution Mode):** Once a build is finalized, the `schema.lds` and `schema.ttl` files represent the immutable schema contracts of this workspace. You are forbidden from attempting to rewrite or modify these files during data execution or orchestration. Any attempt to drift from the established schema will trigger a `SCHEMA_GUARD_HALT`.
-6. **Initialization Step:** As your first action, read the project manifest and the local `schema.lds` to synchronize your mental model with the current authoritative state.
-7. **Expectation Guard Pre-Handoff Gate:** If you changed implementation behavior, run `etg broker guard` before handoff. The guard executes unresolved modeled `validation_check` commands, records durable evidence, and fails until every active `EXPECTATION` is verified.
+5. **Domain Isolation:** Treat external systems as black boxes.
+6. **Schema Contract Enforcement (Execution Mode):** Once a build is finalized, the `schema.lds` and `schema.ttl` files represent the immutable schema contracts of this workspace. You are forbidden from attempting to rewrite or modify these files during data execution or orchestration. Any attempt to drift from the established schema will trigger a `SCHEMA_GUARD_HALT`.
+7. **Initialization Step:** As your first action, read the project manifest and the local `schema.lds` to synchronize your mental model with the current authoritative state.
+8. **Expectation Guard Pre-Handoff Gate:** If you changed implementation behavior, run `etg broker handoff` before handoff. The guard executes unresolved modeled `validation_check` commands, records durable evidence, and fails until every active `EXPECTATION` is verified.
 
 ## Active Package Instructions
 """
