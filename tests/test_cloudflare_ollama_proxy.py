@@ -26,9 +26,11 @@ from entigram.cli_runner.cloudflare_ollama_proxy import (
     discover_cloudflare_model_profiles,
     extract_completion_content,
     generate_stream_lines,
+    is_model_control_command,
     launch_cloudflare_claude,
     make_handler,
     model_control_response,
+    model_control_selector,
     model_profile_from_cloudflare_item,
     non_stream_chat_response,
     non_stream_generate_response,
@@ -237,13 +239,21 @@ class TestCloudflareOllamaProxy(unittest.TestCase):
         )
         state.refresh(FakeClient())
 
-        listing = model_control_response("/model list", state)
+        listing = model_control_response("cf model list", state)
         self.assertIn("@cf/moonshotai/kimi-k2.7-code", listing)
         self.assertIn("moonshotai/kimi-k3", listing)
+        self.assertIn("cf model coding", listing)
 
-        response = model_control_response("/model moonshotai/kimi-k3", state)
+        response = model_control_response("cf model moonshotai/kimi-k3", state)
         self.assertIn("Switched Cloudflare model to moonshotai/kimi-k3", response)
         self.assertEqual(state.active_model, "moonshotai/kimi-k3")
+
+    def test_model_control_command_avoids_claude_slash_namespace(self):
+        self.assertTrue(is_model_control_command("cf model list"))
+        self.assertTrue(is_model_control_command("cf model coding"))
+        self.assertFalse(is_model_control_command("/model list"))
+        self.assertEqual(model_control_selector("cf model conversation"), "conversation")
+        self.assertEqual(model_control_selector("/model list"), "list")
 
     @patch("entigram.cli_runner.cloudflare_ollama_proxy.requests.get")
     def test_discover_cloudflare_models_calls_model_search_api(self, get):

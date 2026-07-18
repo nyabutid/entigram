@@ -176,7 +176,7 @@ class CloudflareModelState:
     def switch(self, selector: str) -> CloudflareModelProfile:
         selector = selector.strip()
         if not selector:
-            raise CloudflareProxyError("Usage: /model list | /model coding | /model conversation | /model <model-id-or-alias>")
+            raise CloudflareProxyError("Usage: cf model list | cf model coding | cf model conversation | cf model <model-id-or-alias>")
         with self._lock:
             if selector in {MODEL_PROFILE_CODING, MODEL_PROFILE_CONVERSATION, MODEL_PROFILE_AUTO}:
                 profile = select_model_profile(self._profiles, selector)
@@ -613,8 +613,7 @@ def models_response_payload(state: CloudflareModelState) -> dict[str, Any]:
 
 
 def model_control_response(command: str, state: CloudflareModelState) -> str:
-    parts = command.strip().split(maxsplit=1)
-    selector = parts[1].strip() if len(parts) > 1 else ""
+    selector = model_control_selector(command)
     if selector in {"", "list", "ls"}:
         lines = [
             f"Active model: {state.active_alias} -> {state.active_model}",
@@ -625,10 +624,27 @@ def model_control_response(command: str, state: CloudflareModelState) -> str:
             lines.append(f"{active_marker} {profile.alias} -> {profile.model_id} [{profile.capability}]")
         if state.discovery_error:
             lines.append(f"Discovery warning: {state.discovery_error}")
-        lines.append("Switch with `/model coding`, `/model conversation`, or `/model <alias-or-id>`.")
+        lines.append("Switch with `cf model coding`, `cf model conversation`, or `cf model <alias-or-id>`.")
         return "\n".join(lines)
     profile = state.switch(selector)
     return f"Switched Cloudflare model to {profile.alias} -> {profile.model_id} [{profile.capability}]"
+
+
+def is_model_control_command(command: str) -> bool:
+    normalized = command.strip().lower()
+    return normalized == "cf model" or normalized.startswith("cf model ")
+
+
+def model_control_selector(command: str) -> str:
+    stripped = command.strip()
+    lowered = stripped.lower()
+    if lowered == "cf model":
+        return ""
+    if lowered.startswith("cf model "):
+        return stripped[len("cf model "):].strip()
+    if stripped.startswith("/model"):
+        return stripped[len("/model"):].strip()
+    return stripped
 
 
 def latest_user_text(messages: list[dict[str, Any]]) -> str:
@@ -1308,7 +1324,7 @@ def make_handler(
                     write_json(self, 200, show_response(model))
                 elif path == "/api/model":
                     command = str(payload.get("model") or payload.get("selector") or "")
-                    write_json(self, 200, {"message": model_control_response(f"/model {command}".strip(), state)})
+                    write_json(self, 200, {"message": model_control_response(command, state)})
                 elif path == "/v1/messages/count_tokens":
                     write_json(self, 200, anthropic_count_tokens_response(payload))
                 elif path == "/v1/messages":
@@ -1340,7 +1356,7 @@ def make_handler(
                 raise CloudflareProxyError("Ollama /api/chat payload must include a messages list")
 
             command = latest_user_text(messages)
-            if command.startswith("/model"):
+            if is_model_control_command(command):
                 content = model_control_response(command, state)
                 write_json(self, 200, non_stream_chat_response(state.active_alias, content))
                 return
@@ -1401,7 +1417,7 @@ def make_handler(
             if not isinstance(prompt, str):
                 raise CloudflareProxyError("Ollama /api/generate payload must include a string prompt")
 
-            if prompt.strip().startswith("/model"):
+            if is_model_control_command(prompt):
                 content = model_control_response(prompt.strip(), state)
                 write_json(self, 200, non_stream_generate_response(state.active_alias, content))
                 return
@@ -1514,7 +1530,7 @@ def make_handler(
                     messages.append({"role": role, "content": content})
 
             command = latest_user_text(messages)
-            if command.startswith("/model"):
+            if is_model_control_command(command):
                 content = model_control_response(command, state)
                 write_json(self, 200, {
                     "id": "msg_1",
@@ -1733,6 +1749,7 @@ def serve_proxy(
         f"http://{host}:{actual_port} using {state.active_model}"
     )
     print(f"Set OLLAMA_HOST=http://{host}:{actual_port} before running ollama launch.")
+    print("Use `cf model list` in chat to inspect/switch the proxy model; Claude's `/model` command is client-side.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -1761,6 +1778,7 @@ def launch_cloudflare_claude(
         f"{ollama_host} using {state.active_model}"
     )
     print(f"Launching ollama launch {claude_command} --model {state.active_alias}")
+    print("Use `cf model list` in chat to inspect/switch the proxy model; Claude's `/model` command is client-side.")
 
     env = os.environ.copy()
     env["OLLAMA_HOST"] = ollama_host
